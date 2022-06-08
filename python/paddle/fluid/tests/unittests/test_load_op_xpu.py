@@ -16,8 +16,6 @@ from __future__ import print_function
 
 import unittest
 import numpy as np
-import os
-import tempfile
 from op_test import OpTest, randomize_probability
 import paddle.fluid as fluid
 import paddle.fluid.layers as layers
@@ -31,8 +29,6 @@ class TestLoadOpXpu(unittest.TestCase):
     """
 
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.model_path = os.path.join(self.temp_dir.name, "model")
         self.ones = np.ones((4, 4)).astype('float32')
         main_prog = fluid.Program()
         start_prog = fluid.Program()
@@ -48,7 +44,7 @@ class TestLoadOpXpu(unittest.TestCase):
         exe = fluid.Executor(fluid.XPUPlace(0))
         exe.run(start_prog)
         fluid.io.save_persistables(exe,
-                                   dirname=self.model_path,
+                                   dirname="./model",
                                    main_program=main_prog)
 
     def test_load_xpu(self):
@@ -56,7 +52,7 @@ class TestLoadOpXpu(unittest.TestCase):
         start_prog = fluid.Program()
         with fluid.program_guard(main_prog, start_prog):
             var = layers.create_tensor(dtype='float32')
-            layers.load(var, file_path=self.model_path + '/w')
+            layers.load(var, file_path='./model/w')
 
         exe = fluid.Executor(fluid.XPUPlace(0))
         exe.run(start_prog)
