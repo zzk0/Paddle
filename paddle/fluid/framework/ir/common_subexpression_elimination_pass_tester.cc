@@ -10,11 +10,15 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include <gtest/gtest.h>
+#include <functional>
+#include <sstream>
+#include <string>
+#include <unordered_set>
 
 #include "paddle/fluid/framework/ir/common_subexpression_elimination_pass.h"
+#include "paddle/fluid/framework/ir/graph_helper.h"
 #include "paddle/fluid/framework/ir/pass_tester_helper.h"
 #include "paddle/fluid/framework/op_version_registry.h"
-
 
 namespace paddle {
 namespace framework {
@@ -23,21 +27,20 @@ namespace ir {
 TEST(CommonSubexpressionEliminationPass, basic) {
   // inputs                           operator            output
   // --------------------------------------------------------------------
-  // (a, b)                        elementweise_add ->      e
-  // (a, b)                        elementweise_add ->      f
-  // (e, c)                        elementweise_add ->      g
-  // (f, d)                        elementweise_add ->      h
+  // (a, b)                        elementwise_add ->      e
+  // (a, b)                        elementwise_add ->      f
+  // (e, c)                        elementwise_add ->      g
+  // (f, d)                        elementwise_add ->      h
 
-  std::cout << "Test CSE" << std::endl;
   Layers layers;
   auto* a = layers.data("a", {1024, 768});
   auto* b = layers.data("b", {1024, 768});
   auto* c = layers.data("c", {1024, 768});
   auto* d = layers.data("d", {1024, 768});
-  auto* e = layers.data("d", {1024, 768});
-  auto* f = layers.data("d", {1024, 768});
-  auto* g = layers.data("d", {1024, 768});
-  auto* h = layers.data("d", {1024, 768});
+  auto* e = layers.data("e", {1024, 768});
+  auto* f = layers.data("f", {1024, 768});
+  auto* g = layers.data("g", {1024, 768});
+  auto* h = layers.data("h", {1024, 768});
 
   layers.elementwise_add(a, b, e, 0);
   layers.elementwise_add(a, b, f, 0);
@@ -47,14 +50,15 @@ TEST(CommonSubexpressionEliminationPass, basic) {
   std::unique_ptr<ir::Graph> graph(new ir::Graph(layers.main_program()));
   auto pass =
       PassRegistry::Instance().Get("common_subexpression_elimination_pass");
-  int num_nodes_before = graph->Nodes().size();
-  VLOG(3) << DebugString(graph);
-
   graph.reset(pass->Apply(graph.release()));
-  int num_nodes_after = graph->Nodes().size();
-  VLOG(3) << DebugString(graph);
-
-  std::cout << num_nodes_before << " -> " << num_nodes_after << std::endl;
+  int num_nodes_after = GetNumOpNodes(graph, "elementwise_add");
+  PADDLE_ENFORCE_EQ(num_nodes_after,
+                    3,
+                    platform::errors::InvalidArgument(
+                        "Before the common subexpression elimination pass, "
+                        "there should be 3 "
+                        "elementwise_add op, but the result is %d",
+                        num_nodes_after));
 }
 
 }  // namespace ir

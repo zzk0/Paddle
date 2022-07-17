@@ -14,8 +14,8 @@
 
 #pragma once
 
-#include "paddle/fluid/framework/ir/fuse_pass_base.h"
 #include <iostream>
+#include "paddle/fluid/framework/ir/fuse_pass_base.h"
 
 namespace paddle {
 namespace framework {
@@ -25,9 +25,7 @@ class Graph;
 
 class CommonSubexpressionElimainationPass : public FusePassBase {
  public:
-  CommonSubexpressionElimainationPass() {
-    std::cout << "CSE Init" << std::endl;
-  }
+  CommonSubexpressionElimainationPass() {}
 
  protected:
   void ApplyImpl(ir::Graph* graph) const override;
