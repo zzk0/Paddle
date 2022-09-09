@@ -311,14 +311,6 @@ std::unique_ptr<Node> CreateNodeForTest(VarDesc* var_desc);
 
 std::unique_ptr<Node> CreateNodeForTest(OpDesc* op_desc);
 
-struct HashNode {
-  size_t operator()(const Node* node) const;
-};
-
-struct EqualNode {
-  bool operator()(const Node* lhs, const Node* rhs) const;
-};
-
 }  // namespace ir
 }  // namespace framework
 }  // namespace paddle

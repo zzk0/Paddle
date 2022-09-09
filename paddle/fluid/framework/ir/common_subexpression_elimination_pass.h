@@ -23,12 +23,20 @@ namespace ir {
 
 class Graph;
 
-class CommonSubexpressionElimainationPass : public FusePassBase {
+class CommonSubexpressionEliminationPass : public FusePassBase {
  public:
-  CommonSubexpressionElimainationPass() {}
+  CommonSubexpressionEliminationPass() {}
 
  protected:
   void ApplyImpl(ir::Graph* graph) const override;
+};
+
+struct HashNode {
+  size_t operator()(const Node* node) const;
+};
+
+struct EqualNode {
+  bool operator()(const Node* lhs, const Node* rhs) const;
 };
 
 }  // namespace ir
