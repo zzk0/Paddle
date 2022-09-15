@@ -51,9 +51,9 @@ void VarConv2dOpMaker::Make() {
   AddComment(R"DOC(
     Var Size Conv Operator
 
-    This operator calculate Out = \sigma \left ( W * X + b \right ), 
+    This operator calculate Out = \sigma \left ( W * X + b \right ),
     only support 2-D for X.
-    
+
     NOTE: only support 'float32' data type now.
 
   )DOC");
@@ -124,7 +124,7 @@ void VarConv2dOP::InferShape(framework::InferShapeContext* ctx) const {
 
   if (ctx->IsRuntime()) {
     framework::Variable* x_var =
-        BOOST_GET(framework::Variable*, ctx->GetInputVarPtrs("X")[0]);
+        PADDLE_GET(framework::Variable*, ctx->GetInputVarPtrs("X")[0]);
     const auto& x_lod = x_var->Get<LoDTensor>().lod();
     PADDLE_ENFORCE_EQ(
         !x_lod.empty(),
@@ -145,7 +145,7 @@ void VarConv2dOP::InferShape(framework::InferShapeContext* ctx) const {
                           x_dims));
 
     framework::Variable* row_var =
-        BOOST_GET(framework::Variable*, ctx->GetInputVarPtrs("ROW")[0]);
+        PADDLE_GET(framework::Variable*, ctx->GetInputVarPtrs("ROW")[0]);
     const auto& row_lod = row_var->Get<LoDTensor>().lod();
     PADDLE_ENFORCE_EQ(!row_lod.empty(),
                       true,
@@ -154,7 +154,7 @@ void VarConv2dOP::InferShape(framework::InferShapeContext* ctx) const {
                           "contain LoD information."));
 
     framework::Variable* col_var =
-        BOOST_GET(framework::Variable*, ctx->GetInputVarPtrs("COLUMN")[0]);
+        PADDLE_GET(framework::Variable*, ctx->GetInputVarPtrs("COLUMN")[0]);
     const auto& col_lod = col_var->Get<LoDTensor>().lod();
     PADDLE_ENFORCE_EQ(!col_lod.empty(),
                       true,

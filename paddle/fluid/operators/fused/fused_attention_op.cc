@@ -432,8 +432,8 @@ class FusedAttentionOpMaker : public framework::OpProtoAndCheckerMaker {
     AddComment(R"DOC(
   The fused_attention operator is the same as following pseudo codes:
 
-  // @input: [batch_size, seq_len, embed_dim] 
-  // @final_out: [batch_size, seq_len, num_heads, head_dim] 
+  // @input: [batch_size, seq_len, embed_dim]
+  // @final_out: [batch_size, seq_len, num_heads, head_dim]
   residual = input
   if (pre_layernorm)
     query = layer_norm(input);
@@ -447,7 +447,7 @@ class FusedAttentionOpMaker : public framework::OpProtoAndCheckerMaker {
     out = dropout(out);
     out = out * v;
     out = transpose(out, perm=[0, 2, 1, 3]);
-                
+
   }
   // out linear
   out = linear(out);
@@ -612,7 +612,7 @@ class FusedAttentionGradOpMaker : public framework::SingleGradOpMaker<T> {
 
     op->SetAttrMap(this->Attrs());
     bool is_pre_layer_norm =
-        BOOST_GET_CONST(bool, op->GetAttr("pre_layer_norm"));
+        PADDLE_GET_CONST(bool, op->GetAttr("pre_layer_norm"));
     if (is_pre_layer_norm) {
       if (this->HasInput("LnScale")) {
         op->SetInput("LnScale", this->Input("LnScale"));

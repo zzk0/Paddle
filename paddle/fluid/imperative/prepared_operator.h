@@ -330,13 +330,8 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
         tensor_in = &(var.template Get<phi::SelectedRows>());
         kernel_ctx->EmplaceBackInputWithoutSetRange(tensor_in);
       } else if (var.template IsType<framework::LoDTensorArray>()) {
-        paddle::small_vector<const phi::TensorBase*> tensor_vector;
-        auto& tensor_array = var.template Get<framework::LoDTensorArray>();
-        for (auto& t : tensor_array) {
-          tensor_vector.emplace_back(&t);
-        }
-        kernel_ctx->EmplaceBackInputsWithoutSetRange(tensor_vector);
-        end_idx += tensor_array.size() - 1;
+        tensor_in = &(var.template Get<framework::LoDTensorArray>());
+        kernel_ctx->EmplaceBackInputWithoutSetRange(tensor_in);
       } else {
         PADDLE_THROW(platform::errors::Unimplemented(
             "Unsupported input `%s` type when call pt kernel.",
@@ -377,14 +372,8 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
           tensor_out = var->template GetMutable<phi::SelectedRows>();
           kernel_ctx->EmplaceBackOutputWithoutSetRange(tensor_out);
         } else if (var->template IsType<framework::LoDTensorArray>()) {
-          paddle::small_vector<phi::TensorBase*> tensor_vector;
-          auto* tensor_array =
-              var->template GetMutable<framework::LoDTensorArray>();
-          for (auto& t : *tensor_array) {
-            tensor_vector.emplace_back(&t);
-          }
-          kernel_ctx->EmplaceBackOutputsWithoutSetRange(tensor_vector);
-          end_idx += tensor_array->size() - 1;
+          tensor_out = var->template GetMutable<framework::LoDTensorArray>();
+          kernel_ctx->EmplaceBackOutputWithoutSetRange(tensor_out);
         } else {
           PADDLE_THROW(platform::errors::Unimplemented(
               "Unsupported output `%s` type when call pt kernel.",
@@ -410,15 +399,27 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
           switch (AttrTypeID(attr)) {
             case framework::proto::AttrType::FLOAT:
               kernel_ctx->EmplaceBackAttr(
-                  std::move(phi::Scalar(BOOST_GET_CONST(float, attr))));
+                  std::move(phi::Scalar(PADDLE_GET_CONST(float, attr))));
+              break;
+            case framework::proto::AttrType::FLOAT64:
+              kernel_ctx->EmplaceBackAttr(
+                  std::move(phi::Scalar(PADDLE_GET_CONST(double, attr))));
               break;
             case framework::proto::AttrType::INT:
               kernel_ctx->EmplaceBackAttr(
-                  std::move(phi::Scalar(BOOST_GET_CONST(int, attr))));
+                  std::move(phi::Scalar(PADDLE_GET_CONST(int, attr))));
+              break;
+            case framework::proto::AttrType::LONG:
+              kernel_ctx->EmplaceBackAttr(
+                  std::move(phi::Scalar(PADDLE_GET_CONST(int64_t, attr))));
               break;
             case framework::proto::AttrType::STRING:
               kernel_ctx->EmplaceBackAttr(
-                  std::move(phi::Scalar(BOOST_GET_CONST(std::string, attr))));
+                  std::move(phi::Scalar(PADDLE_GET_CONST(std::string, attr))));
+              break;
+            case framework::proto::AttrType::BOOLEAN:
+              kernel_ctx->EmplaceBackAttr(
+                  std::move(phi::Scalar(PADDLE_GET_CONST(bool, attr))));
               break;
             default:
               PADDLE_THROW(platform::errors::Unimplemented(
@@ -438,19 +439,19 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
           switch (AttrTypeID(attr)) {
             case framework::proto::AttrType::INTS:
               kernel_ctx->EmplaceBackAttr(std::move(
-                  phi::IntArray(BOOST_GET_CONST(std::vector<int32_t>, attr))));
+                  phi::IntArray(PADDLE_GET_CONST(std::vector<int32_t>, attr))));
               break;
             case framework::proto::AttrType::LONGS:
               kernel_ctx->EmplaceBackAttr(std::move(
-                  phi::IntArray(BOOST_GET_CONST(std::vector<int64_t>, attr))));
+                  phi::IntArray(PADDLE_GET_CONST(std::vector<int64_t>, attr))));
               break;
             case framework::proto::AttrType::INT:
-              kernel_ctx->EmplaceBackAttr(
-                  std::move(phi::IntArray(&BOOST_GET_CONST(int32_t, attr), 1)));
+              kernel_ctx->EmplaceBackAttr(std::move(
+                  phi::IntArray(&PADDLE_GET_CONST(int32_t, attr), 1)));
               break;
             case framework::proto::AttrType::LONG:
-              kernel_ctx->EmplaceBackAttr(
-                  std::move(phi::IntArray(&BOOST_GET_CONST(int64_t, attr), 1)));
+              kernel_ctx->EmplaceBackAttr(std::move(
+                  phi::IntArray(&PADDLE_GET_CONST(int64_t, attr), 1)));
               break;
             default:
               PADDLE_THROW(platform::errors::Unimplemented(
@@ -483,7 +484,7 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
         auto& attr = *attr_ptr;
         switch (AttrTypeID(attr)) {
           case framework::proto::AttrType::INTS: {
-            const auto& vec = BOOST_GET_CONST(std::vector<int32_t>, attr);
+            const auto& vec = PADDLE_GET_CONST(std::vector<int32_t>, attr);
             std::vector<phi::Scalar> scalar_list;
             scalar_list.reserve(vec.size());
             for (const auto& val : vec) {
@@ -492,7 +493,7 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
             kernel_ctx->EmplaceBackAttr(std::move(scalar_list));
           } break;
           case framework::proto::AttrType::LONGS: {
-            const auto& vec = BOOST_GET_CONST(std::vector<int64_t>, attr);
+            const auto& vec = PADDLE_GET_CONST(std::vector<int64_t>, attr);
             std::vector<phi::Scalar> scalar_list;
             scalar_list.reserve(vec.size());
             for (const auto& val : vec) {
@@ -501,7 +502,7 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
             kernel_ctx->EmplaceBackAttr(std::move(scalar_list));
           } break;
           case framework::proto::AttrType::FLOATS: {
-            const auto& vec = BOOST_GET_CONST(std::vector<float>, attr);
+            const auto& vec = PADDLE_GET_CONST(std::vector<float>, attr);
             std::vector<phi::Scalar> scalar_list;
             scalar_list.reserve(vec.size());
             for (const auto& val : vec) {
@@ -510,7 +511,7 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
             kernel_ctx->EmplaceBackAttr(std::move(scalar_list));
           } break;
           case framework::proto::AttrType::FLOAT64S: {
-            const auto& vec = BOOST_GET_CONST(std::vector<double>, attr);
+            const auto& vec = PADDLE_GET_CONST(std::vector<double>, attr);
             std::vector<phi::Scalar> scalar_list;
             scalar_list.reserve(vec.size());
             for (const auto& val : vec) {
@@ -519,7 +520,7 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
             kernel_ctx->EmplaceBackAttr(std::move(scalar_list));
           } break;
           case framework::proto::AttrType::BOOLEANS: {
-            const auto& vec = BOOST_GET_CONST(std::vector<bool>, attr);
+            const auto& vec = PADDLE_GET_CONST(std::vector<bool>, attr);
             std::vector<phi::Scalar> scalar_list;
             scalar_list.reserve(vec.size());
             for (const auto& val : vec) {
@@ -543,40 +544,43 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
         auto& attr = *attr_ptr;
         switch (attr_defs[i].type_index) {
           case phi::AttributeType::FLOAT32:
-            kernel_ctx->EmplaceBackAttr(BOOST_GET_CONST(float, attr));
+            kernel_ctx->EmplaceBackAttr(PADDLE_GET_CONST(float, attr));
+            break;
+          case phi::AttributeType::FLOAT64:
+            kernel_ctx->EmplaceBackAttr(PADDLE_GET_CONST(double, attr));
             break;
           case phi::AttributeType::INT32:
-            kernel_ctx->EmplaceBackAttr(BOOST_GET_CONST(int, attr));
+            kernel_ctx->EmplaceBackAttr(PADDLE_GET_CONST(int, attr));
             break;
           case phi::AttributeType::BOOL:
-            kernel_ctx->EmplaceBackAttr(BOOST_GET_CONST(bool, attr));
+            kernel_ctx->EmplaceBackAttr(PADDLE_GET_CONST(bool, attr));
             break;
           case phi::AttributeType::INT64:
-            kernel_ctx->EmplaceBackAttr(BOOST_GET_CONST(int64_t, attr));
+            kernel_ctx->EmplaceBackAttr(PADDLE_GET_CONST(int64_t, attr));
             break;
           case phi::AttributeType::INT32S:
             kernel_ctx->EmplaceBackAttr(
-                BOOST_GET_CONST(std::vector<int>, attr));
+                PADDLE_GET_CONST(std::vector<int>, attr));
             break;
           case phi::AttributeType::DATA_TYPE: {
             auto data_type = framework::TransToPhiDataType(
                 static_cast<framework::proto::VarType::Type>(
-                    BOOST_GET_CONST(int, attr)));
+                    PADDLE_GET_CONST(int, attr)));
             kernel_ctx->EmplaceBackAttr(data_type);
           } break;
           case phi::AttributeType::STRING:
             kernel_ctx->EmplaceBackAttr(
-                std::move(BOOST_GET_CONST(std::string, attr)));
+                std::move(PADDLE_GET_CONST(std::string, attr)));
             break;
           case phi::AttributeType::INT64S: {
             switch (AttrTypeID(attr)) {
               case framework::proto::AttrType::LONGS:
                 kernel_ctx->EmplaceBackAttr(
-                    BOOST_GET_CONST(std::vector<int64_t>, attr));
+                    PADDLE_GET_CONST(std::vector<int64_t>, attr));
                 break;
               case framework::proto::AttrType::INTS: {
                 const auto& vector_int_attr =
-                    BOOST_GET_CONST(std::vector<int>, attr);
+                    PADDLE_GET_CONST(std::vector<int>, attr);
                 const std::vector<int64_t> vector_int64_attr(
                     vector_int_attr.begin(), vector_int_attr.end());
                 kernel_ctx->EmplaceBackAttr(vector_int64_attr);
@@ -591,11 +595,11 @@ void BuildDygraphPhiKernelContext(const phi::KernelSignature& kernel_signature,
           } break;
           case phi::AttributeType::FLOAT32S:
             kernel_ctx->EmplaceBackAttr(
-                BOOST_GET_CONST(std::vector<float>, attr));
+                PADDLE_GET_CONST(std::vector<float>, attr));
             break;
           case phi::AttributeType::STRINGS:
             kernel_ctx->EmplaceBackAttr(
-                BOOST_GET_CONST(std::vector<std::string>, attr));
+                PADDLE_GET_CONST(std::vector<std::string>, attr));
             break;
           default:
             PADDLE_THROW(platform::errors::Unimplemented(

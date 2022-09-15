@@ -88,6 +88,12 @@ class TestAutoGradTransformForAdd(unittest.TestCase):
             'mul_p',
             'mul_p'
         ]
+        self.prim2orig_ops_with_blacklist = [
+            'tanh', 'tanh', 'add_p', 'fill_constant', 'fill_constant',
+            'fill_constant', 'elementwise_mul', 'sub_p', 'fill_constant',
+            'elementwise_mul', 'sub_p', 'fill_constant', 'elementwise_mul',
+            'elementwise_mul'
+        ]
         self.prim2orig_ops = [
             'tanh', 'tanh', 'elementwise_add', 'fill_constant', 'fill_constant',
             'fill_constant', 'elementwise_mul', 'elementwise_sub',
@@ -131,6 +137,13 @@ class TestAutoGradTransformForAdd(unittest.TestCase):
             flatten_ys_bar = flatten(ys_bar)
             for k, v in self.ys_shape_map.items():
                 self.assertEqual(flatten_ys_bar[k].shape, v)
+
+            # Test prim2orig with blacklist
+            prim2orig(block=self.main_program.block(0),
+                      blacklist=['add_p', 'sub_p'])
+            prim2orig_ops = [op.type for op in self.main_program.block(0).ops]
+            self.assertEqual(sorted(prim2orig_ops),
+                             sorted(self.prim2orig_ops_with_blacklist))
 
             # Test prim2orig
             prim2orig(block=self.main_program.block(0))
@@ -198,6 +211,26 @@ class TestAutoGradTransformForMatmul(TestAutoGradTransformForAdd):
             'reshape_p',
         ]
 
+        self.prim2orig_ops_with_blacklist = [
+            'reshape2',
+            'fill_constant',
+            'fill_constant',
+            'fill_constant',
+            'elementwise_mul',
+            'add_p',
+            'matmul_v2',
+            'fill_constant',
+            'fill_constant',
+            'fill_constant',
+            'elementwise_mul',
+            'transpose2',
+            'matmul_v2',
+            'transpose2',
+            'matmul_v2',
+            # 'elementwise_mul',
+            'reshape2',
+        ]
+
         self.prim2orig_ops = [
             'reshape2',
             'fill_constant',
@@ -257,8 +290,8 @@ class TestAutoGradTransformForIndexSelect(TestAutoGradTransformForAdd):
             'index_select'
         ]
         self.orig2prim_ops = [
-            'broadcast_p', 'add_p', 'reshape_p', 'mul_p', 'reduce_p', 'sqrt_p',
-            'broadcast_p', 'sub_p', 'concat_p', 'gather_p'
+            'broadcast_p', 'add_p', 'reshape_p', 'mul_p', 'reduce_sum_p',
+            'sqrt_p', 'broadcast_p', 'sub_p', 'concat_p', 'gather_p'
         ]
         self.linearize_ops = self.orig2prim_ops + [
             # call fill_const() in linearize() function
@@ -273,7 +306,7 @@ class TestAutoGradTransformForIndexSelect(TestAutoGradTransformForAdd):
             'mul_p',
             'mul_p',
             'add_p',
-            'reduce_p',
+            'reduce_sum_p',
             'fill_constant_p',  # 'sqrt_p', Will not append sqrt_p op when apply JVP for sqrt_p
             'mul_p',
             'div_p',
@@ -293,7 +326,7 @@ class TestAutoGradTransformForIndexSelect(TestAutoGradTransformForAdd):
             'fill_constant_p',
             'mul_p',
             # transposed op
-            'reduce_p',
+            'reduce_sum_p',
             'reshape_p',
             'reshape_p',
             'mul_p',
@@ -301,7 +334,7 @@ class TestAutoGradTransformForIndexSelect(TestAutoGradTransformForAdd):
             'reshape_p',
             'broadcast_p',
             'div_p',
-            'reduce_p',
+            'reduce_sum_p',
             'reshape_p',
             'fill_constant_p',
             'sub_p',
@@ -310,6 +343,17 @@ class TestAutoGradTransformForIndexSelect(TestAutoGradTransformForAdd):
             'scatter_add_p',
             'add_p',  # The output of the op is used by multiple subsequent ops
             'add_p',
+        ]
+
+        self.prim2orig_ops_with_blacklist = [
+            'expand_v2', 'add_p', 'reshape2', 'elementwise_mul', 'reduce_sum',
+            'sqrt', 'expand_v2', 'sub_p', 'concat', 'gather', 'fill_constant',
+            'fill_constant', 'fill_constant', 'fill_constant', 'fill_constant',
+            'fill_constant', 'elementwise_mul', 'reduce_sum', 'reshape2',
+            'reshape2', 'elementwise_mul', 'elementwise_mul', 'reshape2',
+            'expand_v2', 'elementwise_div', 'reduce_sum', 'reshape2',
+            'fill_constant', 'sub_p', 'split', 'fill_constant', 'fill_any_like',
+            'add_p', 'scatter', 'elementwise_add', 'add_p'
         ]
 
         self.prim2orig_ops = [

@@ -39,7 +39,7 @@ from .group_sharded_storage import GradStorage
 from .group_sharded_optimizer_stage2 import GroupShardedOptimizerStage2
 from .group_sharded_utils import Taskflow, Type, device_guard
 
-logger_ = get_logger(logging.INFO)
+logger_ = get_logger(logging.WARNING)
 
 
 def _trainable(param):
@@ -47,8 +47,8 @@ def _trainable(param):
 
 
 class GroupShardedStage2(nn.Layer):
-    """ 
-    A wrapper for Sharding Stage2 Layer in Dygraph. 
+    """
+    A wrapper for Sharding Stage2 Layer in Dygraph.
     .. warning: GroupShardedStage2 encapsulates the layer strategy and integrates it into the nn.Layer.
     .. ZeRO: https://arxiv.org/pdf/1910.02054.pdf.
     """
@@ -210,9 +210,10 @@ class GroupShardedStage2(nn.Layer):
                     scale=self._world_size_scaling)
 
         # Scale grads of params
-        for param in self._trainable_params:
-            if param.name in self._param_grads and param.grad is not None:
-                param.grad.scale_(scale=self._world_size_scaling)
+        with paddle.no_grad():
+            for param in self._trainable_params:
+                if param.name in self._param_grads and param.grad is not None:
+                    param.grad.scale_(scale=self._world_size_scaling)
                 # param._reset_grad_inplace_version(True)
 
             # Scale grads of master params with offload strategy
