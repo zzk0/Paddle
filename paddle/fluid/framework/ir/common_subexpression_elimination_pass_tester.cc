@@ -10,6 +10,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include <gtest/gtest.h>
+
 #include <functional>
 #include <sstream>
 #include <string>
@@ -24,11 +25,41 @@ namespace paddle {
 namespace framework {
 namespace ir {
 
-TEST(CommonSubexpressionEliminationPass, basic) {
+TEST(CommonSubexpressionEliminationPass, basic_test) {
+  // inputs                           operator            output
+  // --------------------------------------------------------------------
+  // (relu(a), b)                  elementwise_add ->      d
+  // (relu(a), c)                  elementwise_add ->      e
+  // (d, e)                        elementwise_add ->      f
+
+  Layers layers;
+  auto* a = layers.data("a", {1024, 768});
+  auto* b = layers.data("b", {1024, 768});
+  auto* c = layers.data("c", {1024, 768});
+  auto* d = layers.elementwise_add(layers.relu(a), b);
+  auto* e = layers.elementwise_add(layers.relu(a), c);
+  auto* f = layers.data("f", {1024, 768});
+  layers.elementwise_add(d, e, f, 0);
+
+  std::unique_ptr<ir::Graph> graph(new ir::Graph(layers.main_program()));
+  auto pass =
+      PassRegistry::Instance().Get("common_subexpression_elimination_pass");
+  graph.reset(pass->Apply(graph.release()));
+  int num_nodes_after = GetNumOpNodes(graph, "relu");
+  PADDLE_ENFORCE_EQ(num_nodes_after,
+                    1,
+                    platform::errors::InvalidArgument(
+                        "Before the common subexpression elimination pass, "
+                        "there should be 1 "
+                        "relu op, but the result is %d",
+                        num_nodes_after));
+}
+
+TEST(CommonSubexpressionEliminationPass, commutative_operator_test) {
   // inputs                           operator            output
   // --------------------------------------------------------------------
   // (a, b)                        elementwise_add ->      e
-  // (a, b)                        elementwise_add ->      f
+  // (b, a)                        elementwise_add ->      f
   // (e, c)                        elementwise_add ->      g
   // (f, d)                        elementwise_add ->      h
 
@@ -43,7 +74,7 @@ TEST(CommonSubexpressionEliminationPass, basic) {
   auto* h = layers.data("h", {1024, 768});
 
   layers.elementwise_add(a, b, e, 0);
-  layers.elementwise_add(a, b, f, 0);
+  layers.elementwise_add(b, a, f, 0);
   layers.elementwise_add(e, c, g, 0);
   layers.elementwise_add(f, d, h, 0);
 

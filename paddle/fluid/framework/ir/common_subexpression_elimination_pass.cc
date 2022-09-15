@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "paddle/fluid/framework/ir/common_subexpression_elimination_pass.h"
+
 #include "paddle/fluid/framework/ir/graph_helper.h"
 #include "paddle/fluid/framework/ir/graph_pattern_detector.h"
+#include "paddle/fluid/framework/ir/node.h"
 #include "paddle/fluid/framework/op_version_registry.h"
 #include "paddle/fluid/framework/type_defs.h"
 #include "paddle/phi/core/enforce.h"
@@ -33,13 +35,12 @@ std::string NodeTypeToString(paddle::framework::ir::Node::Type type) {
 const std::unordered_set<std::string> commutative_operators{"elementwise_add"};
 
 template <class T>
-inline void HashCombine(size_t& seed, const T& v) {
-  std::hash<T> hasher{};
-  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+inline void HashCombine(std::size_t *seed, const T &v) {
+  std::hash<T> hasher;
+  (*seed) ^= hasher(v) + 0x9e3779b9 + ((*seed) << 6) + ((*seed) >> 2);
 }
 
 }  // namespace
-
 
 namespace std {
 
@@ -48,24 +49,23 @@ namespace std {
     if (attr.index() == id) {                  \
       return std::hash<type>{}(get<id>(attr)); \
     }                                          \
-  } while(0)
+  } while (0)
 
-#define HASH_VECTOR_ATTRIBUTE(attr, id, type)         \
-  do {                                                \
-    if (attr.index() == id) {                         \
-      std::vector<type> vec = get<id>(attr);          \
-      size_t seed = 0;                                \
-      for (const auto& v : vec) {                     \
-        HashCombine(seed, v);                         \
-      }                                               \
-      return seed;                                    \
-    }                                                 \
-  } while(0)
+#define HASH_VECTOR_ATTRIBUTE(attr, id, type) \
+  do {                                        \
+    if (attr.index() == id) {                 \
+      std::vector<type> vec = get<id>(attr);  \
+      size_t seed = 0;                        \
+      for (const auto &v : vec) {             \
+        HashCombine(&seed, v);                \
+      }                                       \
+      return seed;                            \
+    }                                         \
+  } while (0)
 
-
-template<>
+template <>
 struct hash<paddle::framework::Attribute> {
-size_t operator()(const paddle::framework::Attribute& attr) const {
+  size_t operator()(const paddle::framework::Attribute &attr) const {
     if (attr.index() == 0) {
       return 0;
     }
@@ -81,71 +81,120 @@ size_t operator()(const paddle::framework::Attribute& attr) const {
     HASH_VECTOR_ATTRIBUTE(attr, 6, std::string);
     HASH_ATTRIBUTE(attr, 8, std::vector<bool>);
     // NOTE(zzk0): Is this reasonable?
-    HASH_ATTRIBUTE(attr, 9, paddle::framework::BlockDesc*);
+    HASH_ATTRIBUTE(attr, 9, paddle::framework::BlockDesc *);
     HASH_ATTRIBUTE(attr, 10, int64_t);
-    HASH_VECTOR_ATTRIBUTE(attr, 11, paddle::framework::BlockDesc*);
+    HASH_VECTOR_ATTRIBUTE(attr, 11, paddle::framework::BlockDesc *);
     HASH_VECTOR_ATTRIBUTE(attr, 12, int64_t);
     HASH_VECTOR_ATTRIBUTE(attr, 13, double);
     return 0;
   }
 };
-
-}
+}  // namespace std
 
 namespace paddle {
 namespace framework {
 namespace ir {
 
-void CommonSubexpressionEliminationPass::ApplyImpl(ir::Graph* graph) const {
-  std::unordered_set<ir::Node*, HashOpNode, EqualOpNode> exist_nodes;
-  std::vector<Node*> nodes = TopologySortOperations(*graph);
-  for (Node* node : nodes) {
-    auto res = exist_nodes.insert(node);
-    if (!res.second) {
-      auto exist_node = *res.first;
+void CommonSubexpressionEliminationPass::ApplyImpl(ir::Graph *graph) const {
+  PADDLE_ENFORCE_EQ(
+      graph->IsMainGraph(),
+      true,
+      platform::errors::InvalidArgument(
+          "CommonSubexpressionEliminationPass only accepts main graph"));
+
+  CommonSubexpressionEliminate(
+      graph, graph, [](Node *) -> Node * { return nullptr; });
+}
+
+void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
+    ir::Graph *main_graph,
+    ir::Graph *graph,
+    std::function<Node *(Node *)> parent_exist_nodes) const {
+  const char *kSubBlock = "sub_block";
+  std::unordered_set<ir::Node *, HashOpNode, EqualOpNode> exist_nodes;
+  std::vector<Node *> nodes = TopologySortOperations(*graph);
+  for (Node *node : nodes) {
+    // TODO(zzk0): skip nodes that have side effect
+
+    // Eliminate Subgraph
+    if (node->Op()->HasAttr(kSubBlock)) {
+      auto sub_block_id =
+          node->Op()->GetAttrIfExists<BlockDesc *>(kSubBlock)->ID();
+      CommonSubexpressionEliminate(
+          main_graph,
+          main_graph->GetSubGraph(sub_block_id),
+          [&exist_nodes, &parent_exist_nodes](Node *node) -> Node * {
+            auto exist_node = exist_nodes.find(node);
+            if (exist_node != exist_nodes.end()) {
+              return *exist_node;
+            }
+            return parent_exist_nodes(node);
+          });
+      continue;
+    }
+
+    Node *exist_node = parent_exist_nodes(node);
+    if (exist_node == nullptr) {
+      auto res = exist_nodes.insert(node);
+      if (!res.second) {
+        exist_node = *res.first;
+      }
+    }
+
+    if (exist_node != nullptr) {
       for (size_t i = 0; i < exist_node->outputs.size(); ++i) {
-        Node* exist_node_output = exist_node->outputs[i];
-        Node* current_node_output = node->outputs[i];
-        std::vector<Node*> current_node_output_outputs =
+        Node *exist_node_output = exist_node->outputs[i];
+        Node *current_node_output = node->outputs[i];
+        std::vector<Node *> current_node_output_outputs =
             current_node_output->outputs;
         for (size_t i = 0; i < current_node_output_outputs.size(); ++i) {
           IR_NODE_LINK_TO(exist_node_output, current_node_output_outputs[i]);
         }
       }
       GraphSafeRemoveNodes(graph,
-                           std::unordered_set<const Node*>(
+                           std::unordered_set<const Node *>(
                                node->outputs.begin(), node->outputs.end()));
       GraphSafeRemoveNodes(graph, {node});
     }
   }
 }
 
-size_t HashOpNode::operator()(const Node* node) const {
+size_t HashOpNode::operator()(const Node *node) const {
   PADDLE_ENFORCE_EQ(node->IsOp(),
                     true,
                     platform::errors::InvalidArgument(
                         "HashOpNode only supports operation node type"));
 
   size_t seed = 0;
-  for (size_t i = 0; i < node->inputs.size(); ++i) {
-    HashCombine(seed, node->inputs[i]->id());
-    HashCombine(seed, node->GraphId());
+  std::vector<Node *> inputs(node->inputs);
+  if (commutative_operators.count(node->Name()) != 0) {
+    auto comparator = [](Node *a, Node *b) { return a->Name() > b->Name(); };
+    std::stable_sort(inputs.begin(), inputs.end(), comparator);
+  }
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    HashCombine(&seed, inputs[i]->id());
+    HashCombine(&seed, node->GraphId());
   }
   for (size_t i = 0; i < node->outputs.size(); ++i) {
     if (node->outputs[i]->IsVar()) {
-      HashCombine(seed, node->outputs[i]->Var()->GetDataType());
+      HashCombine(&seed, node->outputs[i]->Var()->GetDataType());
     }
   }
-  OpDesc* desc = node->Op();
+  OpDesc *desc = node->Op();
   std::vector<std::string> attributes = desc->AttrNames();
   sort(attributes.begin(), attributes.end());
-  for (const std::string& attribute : attributes) {
-    HashCombine(seed, desc->GetAttr(attribute));
+  for (const std::string &attribute : attributes) {
+    HashCombine(&seed, desc->GetAttr(attribute));
   }
   return seed;
 }
 
-bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
+bool EqualOpNode::operator()(const Node *lhs, const Node *rhs) const {
+  PADDLE_ENFORCE_EQ(lhs->IsOp() && rhs->IsOp(),
+                    true,
+                    platform::errors::InvalidArgument(
+                        "EqualOpNode only supports operation node type"));
+
   if (lhs == nullptr && rhs == nullptr) {
     return true;
   }
@@ -159,10 +208,10 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
     return false;
   }
 
-  std::vector<Node*> lhs_inputs(lhs->inputs);
-  std::vector<Node*> rhs_inputs(rhs->inputs);
+  std::vector<Node *> lhs_inputs(lhs->inputs);
+  std::vector<Node *> rhs_inputs(rhs->inputs);
   if (commutative_operators.count(lhs->Name()) != 0) {
-    auto comparator = [](Node* a, Node* b) { return a->Name() > b->Name(); };
+    auto comparator = [](Node *a, Node *b) { return a->Name() > b->Name(); };
     std::stable_sort(lhs_inputs.begin(), lhs_inputs.end(), comparator);
     std::stable_sort(rhs_inputs.begin(), rhs_inputs.end(), comparator);
   }
@@ -176,30 +225,28 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
   }
 
   // compare attribute
-  if (lhs->IsOp() && rhs->IsOp()) {
-    const OpDesc* lhs_desc = lhs->Op();
-    const OpDesc* rhs_desc = rhs->Op();
-    std::vector<std::string> lhs_attr_names = lhs_desc->AttrNames();
-    std::vector<std::string> rhs_attr_names = rhs_desc->AttrNames();
-    if (lhs_attr_names.size() != rhs_attr_names.size()) {
+  const OpDesc *lhs_desc = lhs->Op();
+  const OpDesc *rhs_desc = rhs->Op();
+  std::vector<std::string> lhs_attr_names = lhs_desc->AttrNames();
+  std::vector<std::string> rhs_attr_names = rhs_desc->AttrNames();
+  if (lhs_attr_names.size() != rhs_attr_names.size()) {
+    return false;
+  }
+  std::sort(lhs_attr_names.begin(), lhs_attr_names.end());
+  std::sort(rhs_attr_names.begin(), rhs_attr_names.end());
+  for (size_t i = 0; i < lhs_attr_names.size(); ++i) {
+    if (lhs_attr_names[i] != rhs_attr_names[i]) {
       return false;
     }
-    std::sort(lhs_attr_names.begin(), lhs_attr_names.end());
-    std::sort(rhs_attr_names.begin(), rhs_attr_names.end());
-    for (size_t i = 0; i < lhs_attr_names.size(); ++i) {
-      if (lhs_attr_names[i] != rhs_attr_names[i]) {
-        return false;
-      }
-      if (lhs_desc->GetAttr(lhs_attr_names[i]) !=
-          rhs_desc->GetAttr(rhs_attr_names[i])) {
-        return false;
-      }
+    if (lhs_desc->GetAttr(lhs_attr_names[i]) !=
+        rhs_desc->GetAttr(rhs_attr_names[i])) {
+      return false;
     }
   }
 
   // compare outputs value type
-  std::vector<Node*> lhs_outputs(lhs->outputs);
-  std::vector<Node*> rhs_outputs(rhs->outputs);
+  std::vector<Node *> lhs_outputs(lhs->outputs);
+  std::vector<Node *> rhs_outputs(rhs->outputs);
   if (lhs_outputs.size() != rhs_outputs.size()) {
     return false;
   }
@@ -207,7 +254,8 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
     if (!lhs_outputs[i]->IsVar() || !rhs_outputs[i]->IsVar()) {
       return false;
     }
-    if (lhs_outputs[i]->Var()->GetDataType() != rhs_outputs[i]->Var()->GetDataType()) {
+    if (lhs_outputs[i]->Var()->GetDataType() !=
+        rhs_outputs[i]->Var()->GetDataType()) {
       return false;
     }
   }

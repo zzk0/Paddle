@@ -15,6 +15,7 @@
 #pragma once
 
 #include <iostream>
+
 #include "paddle/fluid/framework/ir/fuse_pass_base.h"
 
 namespace paddle {
@@ -29,6 +30,12 @@ class CommonSubexpressionEliminationPass : public FusePassBase {
 
  protected:
   void ApplyImpl(ir::Graph* graph) const override;
+
+ private:
+  void CommonSubexpressionEliminate(
+      ir::Graph* main_graph,
+      ir::Graph* graph,
+      std::function<Node*(Node*)> parent_exist_nodes) const;
 };
 
 struct HashOpNode {
