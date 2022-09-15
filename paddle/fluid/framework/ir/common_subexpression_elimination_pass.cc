@@ -160,15 +160,11 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
   }
 
   std::vector<Node*> lhs_inputs(lhs->inputs);
-  std::vector<Node*> lhs_outputs(lhs->outputs);
   std::vector<Node*> rhs_inputs(rhs->inputs);
-  std::vector<Node*> rhs_outputs(rhs->outputs);
   if (commutative_operators.count(lhs->Name()) != 0) {
     auto comparator = [](Node* a, Node* b) { return a->Name() > b->Name(); };
     std::stable_sort(lhs_inputs.begin(), lhs_inputs.end(), comparator);
-    std::stable_sort(lhs_outputs.begin(), lhs_outputs.end(), comparator);
     std::stable_sort(rhs_inputs.begin(), rhs_inputs.end(), comparator);
-    std::stable_sort(rhs_outputs.begin(), rhs_outputs.end(), comparator);
   }
 
   // compare inputs value
@@ -181,8 +177,8 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
 
   // compare attribute
   if (lhs->IsOp() && rhs->IsOp()) {
-    OpDesc* lhs_desc = lhs->Op();
-    OpDesc* rhs_desc = rhs->Op();
+    const OpDesc* lhs_desc = lhs->Op();
+    const OpDesc* rhs_desc = rhs->Op();
     std::vector<std::string> lhs_attr_names = lhs_desc->AttrNames();
     std::vector<std::string> rhs_attr_names = rhs_desc->AttrNames();
     if (lhs_attr_names.size() != rhs_attr_names.size()) {
@@ -198,6 +194,21 @@ bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
           rhs_desc->GetAttr(rhs_attr_names[i])) {
         return false;
       }
+    }
+  }
+
+  // compare outputs value type
+  std::vector<Node*> lhs_outputs(lhs->outputs);
+  std::vector<Node*> rhs_outputs(rhs->outputs);
+  if (lhs_outputs.size() != rhs_outputs.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < lhs_outputs.size(); ++i) {
+    if (!lhs_outputs[i]->IsVar() || !rhs_outputs[i]->IsVar()) {
+      return false;
+    }
+    if (lhs_outputs[i]->Var()->GetDataType() != rhs_outputs[i]->Var()->GetDataType()) {
+      return false;
     }
   }
   return true;
