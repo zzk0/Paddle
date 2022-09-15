@@ -16,15 +16,14 @@
 #include "paddle/fluid/framework/ir/graph_helper.h"
 #include "paddle/fluid/framework/ir/graph_pattern_detector.h"
 #include "paddle/fluid/framework/op_version_registry.h"
-
-namespace paddle {
-namespace framework {
-namespace ir {
+#include "paddle/fluid/framework/type_defs.h"
+#include "paddle/phi/core/enforce.h"
+#include "paddle/utils/variant.h"
 
 namespace {
 
-std::string NodeTypeToString(Node::Type type) {
-  if (type == Node::Type::kOperation) {
+std::string NodeTypeToString(paddle::framework::ir::Node::Type type) {
+  if (type == paddle::framework::ir::Node::Type::kOperation) {
     return "kOperation";
   } else {
     return "kVariable";
@@ -33,10 +32,72 @@ std::string NodeTypeToString(Node::Type type) {
 
 const std::unordered_set<std::string> commutative_operators{"elementwise_add"};
 
+template <class T>
+inline void HashCombine(size_t& seed, const T& v) {
+  std::hash<T> hasher{};
+  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
 }  // namespace
 
+
+namespace std {
+
+#define HASH_ATTRIBUTE(attr, id, type)         \
+  do {                                         \
+    if (attr.index() == id) {                  \
+      return std::hash<type>{}(get<id>(attr)); \
+    }                                          \
+  } while(0)
+
+#define HASH_VECTOR_ATTRIBUTE(attr, id, type)         \
+  do {                                                \
+    if (attr.index() == id) {                         \
+      std::vector<type> vec = get<id>(attr);          \
+      size_t seed = 0;                                \
+      for (const auto& v : vec) {                     \
+        HashCombine(seed, v);                         \
+      }                                               \
+      return seed;                                    \
+    }                                                 \
+  } while(0)
+
+
+template<>
+struct hash<paddle::framework::Attribute> {
+size_t operator()(const paddle::framework::Attribute& attr) const {
+    if (attr.index() == 0) {
+      return 0;
+    }
+    if (attr.index() == 7) {
+      return static_cast<size_t>(get<7>(attr));
+    }
+
+    HASH_ATTRIBUTE(attr, 1, int);
+    HASH_ATTRIBUTE(attr, 2, float);
+    HASH_ATTRIBUTE(attr, 3, std::string);
+    HASH_VECTOR_ATTRIBUTE(attr, 4, int);
+    HASH_VECTOR_ATTRIBUTE(attr, 5, float);
+    HASH_VECTOR_ATTRIBUTE(attr, 6, std::string);
+    HASH_ATTRIBUTE(attr, 8, std::vector<bool>);
+    // NOTE(zzk0): Is this reasonable?
+    HASH_ATTRIBUTE(attr, 9, paddle::framework::BlockDesc*);
+    HASH_ATTRIBUTE(attr, 10, int64_t);
+    HASH_VECTOR_ATTRIBUTE(attr, 11, paddle::framework::BlockDesc*);
+    HASH_VECTOR_ATTRIBUTE(attr, 12, int64_t);
+    HASH_VECTOR_ATTRIBUTE(attr, 13, double);
+    return 0;
+  }
+};
+
+}
+
+namespace paddle {
+namespace framework {
+namespace ir {
+
 void CommonSubexpressionEliminationPass::ApplyImpl(ir::Graph* graph) const {
-  std::unordered_set<ir::Node*, HashNode, EqualNode> exist_nodes;
+  std::unordered_set<ir::Node*, HashOpNode, EqualOpNode> exist_nodes;
   std::vector<Node*> nodes = TopologySortOperations(*graph);
   for (Node* node : nodes) {
     auto res = exist_nodes.insert(node);
@@ -59,21 +120,32 @@ void CommonSubexpressionEliminationPass::ApplyImpl(ir::Graph* graph) const {
   }
 }
 
-size_t HashNode::operator()(
-    const Node* node) const {
-  std::stringstream ss;
-  ss << NodeTypeToString(node->NodeType()) << ":" << node->Name() << "#";
-  for (auto input : node->inputs) {
-    ss << NodeTypeToString(input->NodeType()) << ":" << input->Name() << "#";
+size_t HashOpNode::operator()(const Node* node) const {
+  PADDLE_ENFORCE_EQ(node->IsOp(),
+                    true,
+                    platform::errors::InvalidArgument(
+                        "HashOpNode only supports operation node type"));
+
+  size_t seed = 0;
+  for (size_t i = 0; i < node->inputs.size(); ++i) {
+    HashCombine(seed, node->inputs[i]->id());
+    HashCombine(seed, node->GraphId());
   }
-  for (auto output : node->outputs) {
-    ss << NodeTypeToString(output->NodeType()) << "#";
+  for (size_t i = 0; i < node->outputs.size(); ++i) {
+    if (node->outputs[i]->IsVar()) {
+      HashCombine(seed, node->outputs[i]->Var()->GetDataType());
+    }
   }
-  return std::hash<std::string>{}(ss.str());
+  OpDesc* desc = node->Op();
+  std::vector<std::string> attributes = desc->AttrNames();
+  sort(attributes.begin(), attributes.end());
+  for (const std::string& attribute : attributes) {
+    HashCombine(seed, desc->GetAttr(attribute));
+  }
+  return seed;
 }
 
-bool EqualNode::operator()(
-    const Node* lhs, const Node* rhs) const {
+bool EqualOpNode::operator()(const Node* lhs, const Node* rhs) const {
   if (lhs == nullptr && rhs == nullptr) {
     return true;
   }

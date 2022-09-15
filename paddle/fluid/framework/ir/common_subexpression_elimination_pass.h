@@ -31,11 +31,11 @@ class CommonSubexpressionEliminationPass : public FusePassBase {
   void ApplyImpl(ir::Graph* graph) const override;
 };
 
-struct HashNode {
+struct HashOpNode {
   size_t operator()(const Node* node) const;
 };
 
-struct EqualNode {
+struct EqualOpNode {
   bool operator()(const Node* lhs, const Node* rhs) const;
 };
 
