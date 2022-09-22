@@ -92,7 +92,7 @@ TEST(CommonSubexpressionEliminationPass, commutative_operator_test) {
                         num_nodes_after));
 }
 
-TEST(CommonSubexpressionEliminationPass, nondeterministic_test) {
+TEST(CommonSubexpressionEliminationPass, nondeterministic_operator_test) {
   // inputs                           operator            output
   // --------------------------------------------------------------------
   // (dropout(a), b)               elementwise_add ->      d

@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/framework/ir/common_subexpression_elimination_pass.h"
 
+#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/ir/graph_helper.h"
 #include "paddle/fluid/framework/ir/graph_pattern_detector.h"
 #include "paddle/fluid/framework/ir/node.h"
