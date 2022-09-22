@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/framework/ir/common_subexpression_elimination_pass.h"
+#include <type_traits>
 
 #include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/ir/graph_helper.h"
@@ -95,6 +96,15 @@ namespace std {
       return seed;                            \
     }                                         \
   } while (0)
+
+template <>
+struct hash<paddle::framework::proto::VarType_Type> {
+  size_t operator()(const paddle::framework::proto::VarType_Type &attr) const {
+    using type = typename std::underlying_type<
+        paddle::framework::proto::VarType_Type>::type;
+    return std::hash<type>()(static_cast<type>(attr));
+  }
+};
 
 template <>
 struct hash<paddle::framework::Attribute> {
