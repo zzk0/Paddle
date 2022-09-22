@@ -120,7 +120,7 @@ TEST(CommonSubexpressionEliminationPass, dropout_test) {
                     platform::errors::InvalidArgument(
                         "After the common subexpression elimination pass, "
                         "there should still be 2 "
-                        "relu op, but the result is %d",
+                        "dropout op, but the result is %d",
                         num_nodes_after));
 }
 
