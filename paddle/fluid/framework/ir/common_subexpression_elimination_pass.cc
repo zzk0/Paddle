@@ -220,7 +220,7 @@ size_t HashOpNode::operator()(const Node *node) const {
   }
   for (size_t i = 0; i < node->outputs.size(); ++i) {
     if (node->outputs[i]->IsVar()) {
-      HashCombine(&seed, node->outputs[i]->Var()->GetDataType());
+      HashCombine(&seed, node->outputs[i]->Var()->GetType());
     }
   }
   OpDesc *desc = node->Op();
@@ -297,8 +297,7 @@ bool EqualOpNode::operator()(const Node *lhs, const Node *rhs) const {
     if (!lhs_outputs[i]->IsVar() || !rhs_outputs[i]->IsVar()) {
       return false;
     }
-    if (lhs_outputs[i]->Var()->GetDataType() !=
-        rhs_outputs[i]->Var()->GetDataType()) {
+    if (lhs_outputs[i]->Var()->GetType() != rhs_outputs[i]->Var()->GetType()) {
       return false;
     }
   }
