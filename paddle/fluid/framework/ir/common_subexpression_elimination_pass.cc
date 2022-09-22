@@ -32,7 +32,39 @@ std::string NodeTypeToString(paddle::framework::ir::Node::Type type) {
   }
 }
 
-const std::unordered_set<std::string> commutative_operators{"elementwise_add"};
+const std::unordered_set<std::string> commutative_operators{"mul",
+                                                            "bitwise_and",
+                                                            "bitwise_or",
+                                                            "equal_all",
+                                                            "equal",
+                                                            "not_equal",
+                                                            "logical_and",
+                                                            "logical_or",
+                                                            "elementwise_max",
+                                                            "elementwise_fmax",
+                                                            "elementwise_min",
+                                                            "elementwise_fmin",
+                                                            "elementwise_mul",
+                                                            "elementwise_add",
+                                                            "add_p",
+                                                            "max_p",
+                                                            "mul_p",
+                                                            "eq_p",
+                                                            "ne_p"};
+
+const std::unordered_set<std::string> nondeterministic_operators{
+    "dropout",
+    "dropout_nd",
+    "gaussian_random_batch_size_like",
+    "gaussian_random",
+    "randint",
+    "random_crop",
+    "random_routing",
+    "randperm",
+    "uniform_random_batch_size_like",
+    "uniform_random_inplace",
+    "uniform_random",
+    "fused_bias_dropout_residual_layer_norm"};
 
 template <class T>
 inline void HashCombine(std::size_t *seed, const T &v) {
@@ -80,7 +112,6 @@ struct hash<paddle::framework::Attribute> {
     HASH_VECTOR_ATTRIBUTE(attr, 5, float);
     HASH_VECTOR_ATTRIBUTE(attr, 6, std::string);
     HASH_ATTRIBUTE(attr, 8, std::vector<bool>);
-    // NOTE(zzk0): Is this reasonable?
     HASH_ATTRIBUTE(attr, 9, paddle::framework::BlockDesc *);
     HASH_ATTRIBUTE(attr, 10, int64_t);
     HASH_VECTOR_ATTRIBUTE(attr, 11, paddle::framework::BlockDesc *);
@@ -114,9 +145,10 @@ void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
   std::unordered_set<ir::Node *, HashOpNode, EqualOpNode> exist_nodes;
   std::vector<Node *> nodes = TopologySortOperations(*graph);
   for (Node *node : nodes) {
-    // TODO(zzk0): skip nodes that have side effect
+    if (nondeterministic_operators.count(node->Name()) != 0) {
+      continue;
+    }
 
-    // Eliminate Subgraph
     if (node->Op()->HasAttr(kSubBlock)) {
       auto sub_block_id =
           node->Op()->GetAttrIfExists<BlockDesc *>(kSubBlock)->ID();

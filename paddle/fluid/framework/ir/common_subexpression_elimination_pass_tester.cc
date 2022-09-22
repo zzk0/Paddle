@@ -92,6 +92,38 @@ TEST(CommonSubexpressionEliminationPass, commutative_operator_test) {
                         num_nodes_after));
 }
 
+TEST(CommonSubexpressionEliminationPass, dropout_test) {
+  // inputs                           operator            output
+  // --------------------------------------------------------------------
+  // (dropout(a), b)               elementwise_add ->      d
+  // (dropout(a), c)               elementwise_add ->      e
+  // (d, e)                        elementwise_add ->      f
+
+  Layers layers;
+  auto* a = layers.data("a", {1024, 768});
+  auto* b = layers.data("b", {1024, 768});
+  auto* c = layers.data("c", {1024, 768});
+  auto* d =
+      layers.elementwise_add(layers.dropout(a, 0.5, "downgrade_in_infer"), b);
+  auto* e =
+      layers.elementwise_add(layers.dropout(a, 0.5, "downgrade_in_infer"), c);
+  auto* f = layers.data("f", {1024, 768});
+  layers.elementwise_add(d, e, f, 0);
+
+  std::unique_ptr<ir::Graph> graph(new ir::Graph(layers.main_program()));
+  auto pass =
+      PassRegistry::Instance().Get("common_subexpression_elimination_pass");
+  graph.reset(pass->Apply(graph.release()));
+  int num_nodes_after = GetNumOpNodes(graph, "dropout");
+  PADDLE_ENFORCE_EQ(num_nodes_after,
+                    2,
+                    platform::errors::InvalidArgument(
+                        "After the common subexpression elimination pass, "
+                        "there should still be 2 "
+                        "relu op, but the result is %d",
+                        num_nodes_after));
+}
+
 }  // namespace ir
 }  // namespace framework
 }  // namespace paddle
