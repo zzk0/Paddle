@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/framework/ir/common_subexpression_elimination_pass.h"
+#include <string>
 #include <type_traits>
 
 #include "paddle/fluid/framework/framework.pb.h"
@@ -156,6 +157,9 @@ void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
   std::unordered_set<ir::Node *, HashOpNode, EqualOpNode> exist_nodes;
   std::vector<Node *> nodes = TopologySortOperations(*graph);
   for (Node *node : nodes) {
+    if (node->inputs.empty()) {
+      continue;
+    }
     if (nondeterministic_operators.count(node->Name()) != 0) {
       continue;
     }
