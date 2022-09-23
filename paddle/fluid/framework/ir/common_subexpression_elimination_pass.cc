@@ -69,6 +69,8 @@ const std::unordered_set<std::string> nondeterministic_operators{
     "uniform_random",
     "fused_bias_dropout_residual_layer_norm"};
 
+const std::unordered_set<std::string> side_effect_operators{"cast"};
+
 template <class T>
 inline void HashCombine(std::size_t *seed, const T &v) {
   std::hash<T> hasher;
@@ -158,6 +160,9 @@ void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
   std::vector<Node *> nodes = TopologySortOperations(*graph);
   for (Node *node : nodes) {
     if (node->inputs.empty()) {
+      continue;
+    }
+    if (side_effect_operators.count(node->Name()) != 0) {
       continue;
     }
     if (nondeterministic_operators.count(node->Name()) != 0) {
