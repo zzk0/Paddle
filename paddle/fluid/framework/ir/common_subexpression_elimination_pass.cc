@@ -69,7 +69,8 @@ const std::unordered_set<std::string> nondeterministic_operators{
     "uniform_random",
     "fused_bias_dropout_residual_layer_norm"};
 
-const std::unordered_set<std::string> side_effect_operators{"cast"};
+const std::unordered_set<std::string> side_effect_operators{
+    "feed", "cast", "fetch", "fill_constant", "fill_constant_batch_size_like"};
 
 template <class T>
 inline void HashCombine(std::size_t *seed, const T &v) {
@@ -228,7 +229,7 @@ size_t HashOpNode::operator()(const Node *node) const {
     HashCombine(&seed, node->GraphId());
   }
   for (size_t i = 0; i < node->outputs.size(); ++i) {
-    if (node->outputs[i]->IsVar()) {
+    if (node->outputs[i]->IsVar() && node->outputs[i]->Var() != nullptr) {
       HashCombine(&seed, node->outputs[i]->Var()->GetType());
     }
   }
