@@ -195,6 +195,7 @@ void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
     }
 
     if (exist_node != nullptr) {
+      std::cout << "removing node: " << exist_node->Name() << std::endl;
       for (size_t i = 0; i < exist_node->outputs.size(); ++i) {
         Node *exist_node_output = exist_node->outputs[i];
         Node *current_node_output = node->outputs[i];
