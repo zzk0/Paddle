@@ -316,6 +316,9 @@ bool EqualOpNode::operator()(const Node *lhs, const Node *rhs) const {
     if (lhs_outputs[i]->IsCtrlVar() != rhs_outputs[i]->IsCtrlVar()) {
       return false;
     }
+    if (lhs_outputs[i]->IsCtrlVar() && rhs_outputs[i]->IsCtrlVar()) {
+      continue;
+    }
     if (lhs_outputs[i]->Var()->GetType() != rhs_outputs[i]->Var()->GetType()) {
       return false;
     }
