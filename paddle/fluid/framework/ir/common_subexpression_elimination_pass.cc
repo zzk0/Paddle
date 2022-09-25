@@ -195,7 +195,6 @@ void CommonSubexpressionEliminationPass::CommonSubexpressionEliminate(
     }
 
     if (exist_node != nullptr) {
-      std::cout << "removing node: " << exist_node->Name() << std::endl;
       for (size_t i = 0; i < exist_node->outputs.size(); ++i) {
         Node *exist_node_output = exist_node->outputs[i];
         Node *current_node_output = node->outputs[i];
@@ -229,8 +228,14 @@ size_t HashOpNode::operator()(const Node *node) const {
     HashCombine(&seed, inputs[i]->id());
     HashCombine(&seed, node->GraphId());
   }
+  const std::string kDepVarName = std::string(Node::kControlDepVarName);
   for (size_t i = 0; i < node->outputs.size(); ++i) {
-    if (node->outputs[i]->IsVar() && node->outputs[i]->Var() != nullptr) {
+    if (node->outputs[i] == nullptr) {
+      continue;
+    }
+    if (node->outputs[i]->IsCtrlVar()) {
+      HashCombine(&seed, kDepVarName);
+    } else if (node->outputs[i]->IsVar()) {
       HashCombine(&seed, node->outputs[i]->Var()->GetType());
     }
   }
@@ -306,6 +311,9 @@ bool EqualOpNode::operator()(const Node *lhs, const Node *rhs) const {
   }
   for (size_t i = 0; i < lhs_outputs.size(); ++i) {
     if (!lhs_outputs[i]->IsVar() || !rhs_outputs[i]->IsVar()) {
+      return false;
+    }
+    if (!lhs_outputs[i]->IsCtrlVar() || !rhs_outputs[i]->IsCtrlVar()) {
       return false;
     }
     if (lhs_outputs[i]->Var()->GetType() != rhs_outputs[i]->Var()->GetType()) {
