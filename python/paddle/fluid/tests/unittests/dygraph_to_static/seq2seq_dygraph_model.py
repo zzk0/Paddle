@@ -13,10 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
 import paddle
 import paddle.fluid as fluid
@@ -385,6 +381,7 @@ class BaseModel(fluid.dygraph.Layer):
                         dropout_implementation='upscale_in_train')
                 else:
                     step_input = new_hidden
+
             cell_outputs = self._split_batch_beams(step_input)
             cell_outputs = self.fc(cell_outputs)
 

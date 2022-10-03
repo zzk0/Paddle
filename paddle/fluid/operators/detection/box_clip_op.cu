@@ -22,7 +22,7 @@ limitations under the License. */
 namespace paddle {
 namespace operators {
 
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 using LoDTenso = framework::LoDTensor;
 
 static constexpr int ImInfoSize = 3;
@@ -50,7 +50,7 @@ class GPUBoxClipKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext &context) const override {
     auto *input = context.Input<LoDTensor>("Input");
-    auto *im_info = context.Input<Tensor>("ImInfo");
+    auto *im_info = context.Input<phi::DenseTensor>("ImInfo");
     auto *output = context.Output<LoDTensor>("Output");
     const int64_t num = input->dims()[0];
     const int64_t bbox_width = input->numel() / num;
@@ -75,7 +75,6 @@ class GPUBoxClipKernel : public framework::OpKernel<T> {
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-REGISTER_OP_CUDA_KERNEL(
-    box_clip,
-    ops::GPUBoxClipKernel<paddle::platform::CUDADeviceContext, float>,
-    ops::GPUBoxClipKernel<paddle::platform::CUDADeviceContext, double>);
+REGISTER_OP_CUDA_KERNEL(box_clip,
+                        ops::GPUBoxClipKernel<phi::GPUContext, float>,
+                        ops::GPUBoxClipKernel<phi::GPUContext, double>);

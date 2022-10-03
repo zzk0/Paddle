@@ -119,8 +119,7 @@ void SerializeLodTensor(framework::Variable* var,
     char* temp_ptr =
         new char[tensor->numel() *
                  framework::DataTypeSize(tensor->dtype())];  // NOLINT
-    auto stream =
-        reinterpret_cast<const platform::CUDADeviceContext&>(ctx).stream();
+    auto stream = reinterpret_cast<const phi::GPUContext&>(ctx).stream();
     memory::Copy(
         platform::CPUPlace(),
         temp_ptr,
@@ -168,8 +167,7 @@ void SerializeSelectedRows(framework::Variable* var,
     char* temp_ptr =
         new char[tensor->numel() *
                  framework::DataTypeSize(tensor->dtype())];  // NOLINT
-    auto stream =
-        reinterpret_cast<const platform::CUDADeviceContext&>(ctx).stream();
+    auto stream = reinterpret_cast<const phi::GPUContext&>(ctx).stream();
     memory::Copy(
         platform::CPUPlace(),
         temp_ptr,
@@ -265,8 +263,7 @@ void DeserializeLodTensor(framework::Variable* var,
                  framework::DataTypeSize(tensor->dtype())];     // NOLINT
     io_buffer_itr.copy_and_forward((void*)(&data_len), 8);      // NOLINT
     io_buffer_itr.copy_and_forward((void*)temp_ptr, data_len);  // NOLINT
-    auto stream =
-        reinterpret_cast<const platform::CUDADeviceContext&>(ctx).stream();
+    auto stream = reinterpret_cast<const phi::GPUContext&>(ctx).stream();
     memory::Copy(place,
                  tensor_data,
                  platform::CPUPlace(),
@@ -285,7 +282,7 @@ void DeserializeSelectedRows(
     const platform::DeviceContext& ctx) {
   const auto place = ctx.GetPlace();
   auto* slr = var->GetMutable<phi::SelectedRows>();
-  framework::Tensor* tensor = slr->mutable_value();
+  phi::DenseTensor* tensor = slr->mutable_value();
   slr->set_height(msg.slr_height());
   std::vector<int64_t> tmp_rows(msg.dims()[0]);
   memcpy(tmp_rows.data(), msg.data().data(), msg.dims()[0] * sizeof(int64_t));
@@ -311,8 +308,7 @@ void DeserializeSelectedRows(
     unsigned long data_len;                                  // NOLINT
     io_buffer_itr.copy_and_forward((void*)(&data_len), 8);   // NOLINT
     io_buffer_itr.copy_and_forward(temp_ptr, data_len);
-    auto stream =
-        reinterpret_cast<const platform::CUDADeviceContext&>(ctx).stream();
+    auto stream = reinterpret_cast<const phi::GPUContext&>(ctx).stream();
     memory::Copy(place,
                  tensor_data,
                  platform::CPUPlace(),

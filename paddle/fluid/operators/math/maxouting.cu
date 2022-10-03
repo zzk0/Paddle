@@ -107,8 +107,8 @@ __global__ void KernelMaxoutGrad(const int nthreads,
  */
 template <typename DeviceContext, typename T>
 void MaxOutFunctor<DeviceContext, T>::operator()(const DeviceContext& context,
-                                                 const framework::Tensor& input,
-                                                 framework::Tensor* output,
+                                                 const phi::DenseTensor& input,
+                                                 phi::DenseTensor* output,
                                                  const int groups,
                                                  const int axis) {
   const int batch_size = input.dims()[0];
@@ -140,10 +140,10 @@ void MaxOutFunctor<DeviceContext, T>::operator()(const DeviceContext& context,
 template <typename DeviceContext, typename T>
 void MaxOutGradFunctor<DeviceContext, T>::operator()(
     const DeviceContext& context,
-    const framework::Tensor& input,
-    framework::Tensor* input_grad,
-    const framework::Tensor& output,
-    const framework::Tensor& output_grad,
+    const phi::DenseTensor& input,
+    phi::DenseTensor* input_grad,
+    const phi::DenseTensor& output,
+    const phi::DenseTensor& output_grad,
     const int groups,
     const int axis) {
   const int batch_size = input.dims()[0];
@@ -172,12 +172,6 @@ void MaxOutGradFunctor<DeviceContext, T>::operator()(
                                                               groups,
                                                               axis);
 }
-
-template class MaxOutGradFunctor<platform::CUDADeviceContext, float>;
-template class MaxOutGradFunctor<platform::CUDADeviceContext, double>;
-
-template class MaxOutFunctor<platform::CUDADeviceContext, float>;
-template class MaxOutFunctor<platform::CUDADeviceContext, double>;
 
 template class MaxOutGradFunctor<phi::GPUContext, float>;
 template class MaxOutGradFunctor<phi::GPUContext, double>;

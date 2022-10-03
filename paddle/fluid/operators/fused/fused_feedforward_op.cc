@@ -23,7 +23,7 @@ limitations under the License. */
 
 namespace paddle {
 namespace operators {
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 
 class FusedFeedForwardOp : public framework::OperatorWithKernel {
  public:
@@ -345,7 +345,7 @@ class FusedFeedForwardOpGrad : public framework::OperatorWithKernel {
 
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
-    auto input = ctx.Input<Tensor>("X");
+    auto input = ctx.Input<phi::DenseTensor>("X");
     auto input_data_type = framework::TransToProtoVarType(input->dtype());
     return framework::OpKernelType(input_data_type, ctx.GetPlace());
   }
@@ -371,7 +371,7 @@ class FusedFeedForwardOpGradMaker : public framework::SingleGradOpMaker<T> {
     op->SetInput("Dropout2Out", this->Output("Dropout2Out"));
 
     op->SetAttrMap(this->Attrs());
-    bool pre_layer_norm = BOOST_GET_CONST(bool, op->GetAttr("pre_layer_norm"));
+    bool pre_layer_norm = PADDLE_GET_CONST(bool, op->GetAttr("pre_layer_norm"));
 
     op->SetOutput(framework::GradVarName("X"), this->InputGrad("X"));
     if (pre_layer_norm) {

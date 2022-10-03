@@ -73,7 +73,7 @@ class AssignPosCUDAKernel : public framework::OpKernel<T> {
     T* cum_data = const_cast<T*>(cum_count->data<T>());
     auto cum_size = cum_count->numel();
 
-    framework::Tensor cpu_eff_num_len;
+    phi::DenseTensor cpu_eff_num_len;
     int64_t cpu_eff_num_len_data = 0;
     if (platform::is_cpu_place(eff_num_len->place())) {
       cpu_eff_num_len_data = eff_num_len->data<T>()[0];
@@ -82,8 +82,7 @@ class AssignPosCUDAKernel : public framework::OpKernel<T> {
           *eff_num_len, platform::CPUPlace(), &cpu_eff_num_len);
       cpu_eff_num_len_data = cpu_eff_num_len.data<T>()[0];
     }
-    const auto& dev_ctx =
-        context.template device_context<platform::CUDADeviceContext>();
+    const auto& dev_ctx = context.template device_context<phi::GPUContext>();
     framework::DDim out_dims = phi::make_ddim({cpu_eff_num_len_data});
     auto out_data = out->mutable_data<T>(out_dims, place);
 

@@ -105,7 +105,7 @@ struct TestBroadcastOpHandle {
       for (int i = 0; i < count; ++i) {
         auto p = p::CUDAPlace(i);
         place_list_.push_back(p);
-        ctxs_.emplace_back(new p::CUDADeviceContext(p));
+        ctxs_.emplace_back(new phi::GPUContext(p));
       }
       nccl_ctxs_.reset(new platform::NCCLContextMap(place_list_));
 #else
@@ -286,7 +286,7 @@ struct TestBroadcastOpHandle {
     }
 
     p::CPUPlace cpu_place;
-    f::Tensor result_tensor;
+    phi::DenseTensor result_tensor;
     f::TensorCopySync(rt, cpu_place, &result_tensor);
     float* ct = result_tensor.data<float>();
 
@@ -312,7 +312,7 @@ struct TestBroadcastOpHandle {
                           "the expected, expect %s, but got %s.",
                           lod,
                           tensor.lod()));
-    f::Tensor result_tensor;
+    phi::DenseTensor result_tensor;
     f::TensorCopySync(tensor, cpu_place, &result_tensor);
     float* ct = result_tensor.mutable_data<float>(cpu_place);
     for (int64_t k = 0; k < phi::product(kDims); ++k) {

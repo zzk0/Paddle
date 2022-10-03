@@ -174,8 +174,8 @@ class FusedElemwiseActivationOp : public framework::OperatorWithKernel {
  protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
-    PADDLE_ENFORCE_EQ(ctx.Input<framework::Tensor>("X")->dtype(),
-                      ctx.Input<framework::Tensor>("Y")->dtype(),
+    PADDLE_ENFORCE_EQ(ctx.Input<phi::DenseTensor>("X")->dtype(),
+                      ctx.Input<phi::DenseTensor>("Y")->dtype(),
                       platform::errors::InvalidArgument(
                           "The element's type of input should be the same."));
     return framework::OpKernelType(
@@ -283,14 +283,14 @@ class FusedElemwiseActivationGradMaker
 
     grad_op->SetAttrMap(this->Attrs());
 
-    std::vector<std::string> functor_names = BOOST_GET_CONST(
+    std::vector<std::string> functor_names = PADDLE_GET_CONST(
         std::vector<std::string>, grad_op->GetAttr("functor_list"));
 
     functor_names[0] += "_grad";
     functor_names[1] += "_grad";
     grad_op->SetAttr("functor_list", functor_names);
 
-    if (BOOST_GET_CONST(bool, grad_op->GetAttr("save_intermediate_out"))) {
+    if (PADDLE_GET_CONST(bool, grad_op->GetAttr("save_intermediate_out"))) {
       // PADDLE_ENFORCE_NE(Output("IntermediateOut").size(), 0);
       grad_op->SetInput("IntermediateOut", this->Output("IntermediateOut"));
       grad_op->SetOutput(framework::GradVarName("IntermediateOut"),

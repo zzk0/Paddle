@@ -19,17 +19,13 @@ import unittest
 import numpy as np
 import paddle
 import paddle.fluid as fluid
-import paddle.compat as cpt
 import paddle.nn.functional as F
 from paddle.incubate.autograd.utils import as_tensors
-from paddle.fluid.framework import _test_eager_guard, _in_legacy_dygraph, _in_eager_without_dygraph_check
+from paddle.fluid.framework import _test_eager_guard
 
 import config
 import utils
-from utils import (_compute_numerical_batch_hessian, _compute_numerical_hessian,
-                   _compute_numerical_vhp, _compute_numerical_jacobian,
-                   _compute_numerical_batch_jacobian)
-from utils import matmul, mul, nested, o2, pow, reduce, reduce_dim, unuse
+from utils import matmul, mul, nested, o2, reduce, reduce_dim
 
 
 def make_v(f, inputs):
@@ -222,6 +218,11 @@ class TestVJP(TestAutogradFunctional):
         self.func_vjp_i2o2_omitting_v()
         self.func_vjp_nested()
         self.func_vjp_aliased_input()
+
+    def test_input_single_tensor(self):
+        self.assertIsInstance(
+            paddle.incubate.autograd.vjp(paddle.tanh, paddle.rand((3, 4)))[1],
+            paddle.fluid.framework.Variable)
 
 
 @utils.place(config.DEVICES)
@@ -676,4 +677,5 @@ class TestHessianBatchFirst(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    np.random.seed(2022)
     unittest.main()

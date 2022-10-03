@@ -70,9 +70,9 @@ class OneHotCUDAKernel : public framework::OpKernel<T> {
 
     int depth = -1;
     if (context.HasInput("depth_tensor")) {
-      auto* depth_tensor = context.Input<framework::Tensor>("depth_tensor");
+      auto* depth_tensor = context.Input<phi::DenseTensor>("depth_tensor");
       if (platform::is_gpu_place(depth_tensor->place())) {
-        framework::Tensor temp;
+        phi::DenseTensor temp;
         paddle::framework::TensorCopySync(
             *depth_tensor, platform::CPUPlace(), &temp);
         depth = *temp.data<int32_t>();
@@ -99,7 +99,6 @@ class OneHotCUDAKernel : public framework::OpKernel<T> {
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-REGISTER_OP_CUDA_KERNEL(
-    one_hot,
-    ops::OneHotCUDAKernel<paddle::platform::CUDADeviceContext, int>,
-    ops::OneHotCUDAKernel<paddle::platform::CUDADeviceContext, int64_t>);
+REGISTER_OP_CUDA_KERNEL(one_hot,
+                        ops::OneHotCUDAKernel<phi::GPUContext, int>,
+                        ops::OneHotCUDAKernel<phi::GPUContext, int64_t>);

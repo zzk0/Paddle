@@ -38,7 +38,7 @@ static inline int GET_BLOCKS(const int N) {
 }
 
 using LoDTensor = framework::LoDTensor;
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 
 template <typename T>
 __global__ void initialize_zero_kernel(T* data, const int length) {
@@ -92,8 +92,7 @@ class NumberCountOpCUDAKernel : public framework::OpKernel<T> {
 
     int64_t batch_size = numbers->numel();
     auto place = context.GetPlace();
-    const auto& dev_ctx =
-        context.template device_context<platform::CUDADeviceContext>();
+    const auto& dev_ctx = context.template device_context<phi::GPUContext>();
 
     framework::DDim out_dims = phi::make_ddim({upper_range});
     auto out_data = number_count->mutable_data<T>(out_dims, place);

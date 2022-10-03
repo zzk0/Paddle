@@ -46,14 +46,14 @@ struct LoDTensorToArrayFunctorImpl {
 
 struct LoDTensorToArrayFunctor
     : public std::unary_function<platform::Place, void> {
-  std::vector<const framework::Tensor *> ref_inputs_;
-  mutable std::vector<framework::Tensor *> outputs_;
-  const framework::Tensor &input_;
+  std::vector<const phi::DenseTensor *> ref_inputs_;
+  mutable std::vector<phi::DenseTensor *> outputs_;
+  const phi::DenseTensor &input_;
 
-  explicit LoDTensorToArrayFunctor(const framework::Tensor &input)
+  explicit LoDTensorToArrayFunctor(const phi::DenseTensor &input)
       : input_(input) {}
 
-  void AddOutput(framework::Tensor *t) {
+  void AddOutput(phi::DenseTensor *t) {
     outputs_.emplace_back(t);
     ref_inputs_.emplace_back(t);
   }
@@ -66,7 +66,7 @@ struct LoDTensorToArrayFunctor
       Apply(static_cast<phi::CPUContext *>(dev_ctx));
     } else {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-      Apply(static_cast<platform::CUDADeviceContext *>(dev_ctx));
+      Apply(static_cast<phi::GPUContext *>(dev_ctx));
 #else
       PADDLE_THROW(
           platform::errors::Unavailable("Paddle is not compiled with CUDA."));
@@ -152,7 +152,7 @@ class LoDTensorToArrayOp : public framework::OperatorBase {
       }
     }
 
-    std::map<size_t, framework::Tensor> outputs;
+    std::map<size_t, phi::DenseTensor> outputs;
 
     for (size_t i = 0; i < max_seq_len; ++i) {
       auto &ranges = copy_ranges[i];

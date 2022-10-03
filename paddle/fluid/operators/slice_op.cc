@@ -24,7 +24,7 @@ limitations under the License. */
 namespace paddle {
 namespace operators {
 
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 
 class SliceOp : public framework::OperatorWithKernel {
  public:
@@ -162,9 +162,9 @@ class SliceOp : public framework::OperatorWithKernel {
         // 16(depending on which blocking format is used) submemory cannot be
         // created, so in that scenario a fallback is needed
         auto tmp_md = dnnl::memory::desc(
-            phi::vectorize(ctx.Input<Tensor>("Input")->dims()),
+            phi::vectorize(ctx.Input<phi::DenseTensor>("Input")->dims()),
             dnnl::memory::data_type::f32,
-            ctx.Input<Tensor>("Input")->format());
+            ctx.Input<phi::DenseTensor>("Input")->format());
         if (tmp_md.data.format_desc.blocking.inner_nblks == 0)
           return framework::OpKernelType(input_data_type,
                                          ctx.GetPlace(),
@@ -260,16 +260,6 @@ class SliceOpMaker : public framework::OpProtoAndCheckerMaker {
         .SetDefault({});
     AddAttr<std::vector<int>>("decrease_axis", "(list<int>) decrease_axis")
         .SetDefault({});
-    AddAttr<bool>("use_mkldnn",
-                  "(bool, default false) Only used in mkldnn kernel")
-        .SetDefault(false)
-        .AsExtra();
-    AddAttr<std::string>(
-        "mkldnn_data_type",
-        "(string, default \"float32\"). Data type of mkldnn kernel")
-        .SetDefault("float32")
-        .InEnum({"float32", "int8", "bfloat16"})
-        .AsExtra();
     AddComment(R"DOC(
 Slice Operator.
 
@@ -348,9 +338,10 @@ class SliceOpGrad : public framework::OperatorWithKernel {
       // created, so in that scenario a fallback is needed
       auto tmp_md = dnnl::memory::desc(
           phi::vectorize(
-              ctx.Input<Tensor>(framework::GradVarName("Out"))->dims()),
+              ctx.Input<phi::DenseTensor>(framework::GradVarName("Out"))
+                  ->dims()),
           dnnl::memory::data_type::f32,
-          ctx.Input<Tensor>(framework::GradVarName("Out"))->format());
+          ctx.Input<phi::DenseTensor>(framework::GradVarName("Out"))->format());
       if (tmp_md.data.format_desc.blocking.inner_nblks == 0)
         return framework::OpKernelType(input_data_type,
                                        ctx.GetPlace(),
@@ -488,32 +479,24 @@ REGISTER_OP_CPU_KERNEL(
 
 REGISTER_OP_CUDA_KERNEL(
     slice,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext, bool>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext, float>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext, double>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext, int>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext, int64_t>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext,
-                     paddle::platform::float16>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext,
-                     paddle::platform::bfloat16>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext,
-                     paddle::platform::complex<float>>,
-    ops::SliceKernel<paddle::platform::CUDADeviceContext,
-                     paddle::platform::complex<double>>);
+    ops::SliceKernel<phi::GPUContext, bool>,
+    ops::SliceKernel<phi::GPUContext, float>,
+    ops::SliceKernel<phi::GPUContext, double>,
+    ops::SliceKernel<phi::GPUContext, int>,
+    ops::SliceKernel<phi::GPUContext, int64_t>,
+    ops::SliceKernel<phi::GPUContext, paddle::platform::float16>,
+    ops::SliceKernel<phi::GPUContext, paddle::platform::bfloat16>,
+    ops::SliceKernel<phi::GPUContext, paddle::platform::complex<float>>,
+    ops::SliceKernel<phi::GPUContext, paddle::platform::complex<double>>);
 
 REGISTER_OP_CUDA_KERNEL(
     slice_grad,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext, bool>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext, float>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext, double>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext, int>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext, int64_t>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext,
-                         paddle::platform::float16>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext,
-                         paddle::platform::bfloat16>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext,
-                         paddle::platform::complex<float>>,
-    ops::SliceGradKernel<paddle::platform::CUDADeviceContext,
-                         paddle::platform::complex<double>>);
+    ops::SliceGradKernel<phi::GPUContext, bool>,
+    ops::SliceGradKernel<phi::GPUContext, float>,
+    ops::SliceGradKernel<phi::GPUContext, double>,
+    ops::SliceGradKernel<phi::GPUContext, int>,
+    ops::SliceGradKernel<phi::GPUContext, int64_t>,
+    ops::SliceGradKernel<phi::GPUContext, paddle::platform::float16>,
+    ops::SliceGradKernel<phi::GPUContext, paddle::platform::bfloat16>,
+    ops::SliceGradKernel<phi::GPUContext, paddle::platform::complex<float>>,
+    ops::SliceGradKernel<phi::GPUContext, paddle::platform::complex<double>>);

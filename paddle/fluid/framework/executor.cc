@@ -183,6 +183,7 @@ void Executor::Run(const ProgramDesc& pdesc,
                    const std::vector<std::string>& skip_ref_cnt_vars,
                    bool force_disable_gc,
                    bool keep_kid_scopes) {
+  LOG_FIRST_N(INFO, 1) << "Old Executor is Running.";
   platform::RecordEvent record_run(
       "Executor::Run", platform::TracerEventType::UserDefined, 1);
   platform::RecordBlock b(block_id);
@@ -645,7 +646,7 @@ void Executor::RunPreparedContext(
   for (auto* op : global_block.AllOps()) {
     if (op->Type() == kFeedOpType) {
       std::string feed_target_name = op->Output("Out")[0];
-      int idx = BOOST_GET_CONST(int, op->GetAttr("col"));
+      int idx = PADDLE_GET_CONST(int, op->GetAttr("col"));
       SetFeedVariable(
           scope, *(*feed_targets)[feed_target_name], feed_holder_name, idx);
     }
@@ -657,7 +658,7 @@ void Executor::RunPreparedContext(
   for (auto* op : global_block.AllOps()) {
     if (op->Type() == kFetchOpType) {
       std::string fetch_target_name = op->Input("X")[0];
-      int idx = BOOST_GET_CONST(int, op->GetAttr("col"));
+      int idx = PADDLE_GET_CONST(int, op->GetAttr("col"));
       *(*fetch_targets)[fetch_target_name] =
           GetFetchVariable(*scope, fetch_holder_name, idx);
     }

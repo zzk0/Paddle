@@ -40,8 +40,7 @@ class SequenceSoftmaxOp : public framework::OperatorWithKernel {
     bool runtime_cudnn_support = false;
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (platform::is_gpu_place(ctx.GetPlace())) {
-      auto& dev_ctx =
-          ctx.template device_context<platform::CUDADeviceContext>();
+      auto& dev_ctx = ctx.template device_context<phi::GPUContext>();
       runtime_cudnn_support = dev_ctx.cudnn_handle() != nullptr ? true : false;
     }
 #endif
@@ -73,14 +72,6 @@ class SequenceSoftmaxOpMaker : public framework::OpProtoAndCheckerMaker {
         "use_cudnn",
         "(bool, default false) Only used in cudnn kernel, need install cudnn")
         .SetDefault(false)
-        .AsExtra();
-    AddAttr<std::string>(
-        "data_format",
-        "(string, default NCHW) Only used in "
-        "An optional string from: \"NHWC\", \"NCHW\". "
-        "Defaults to \"NHWC\". Specify the data format of the output data, "
-        "the input will be transformed automatically. ")
-        .SetDefault("AnyLayout")
         .AsExtra();
     AddComment(R"DOC(
 Sequence Softmax Operator.
@@ -149,8 +140,7 @@ class SequenceSoftmaxGradOp : public framework::OperatorWithKernel {
     bool runtime_cudnn_support = false;
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (platform::is_gpu_place(ctx.GetPlace())) {
-      auto& dev_ctx =
-          ctx.template device_context<platform::CUDADeviceContext>();
+      auto& dev_ctx = ctx.template device_context<phi::GPUContext>();
       runtime_cudnn_support = dev_ctx.cudnn_handle() != nullptr ? true : false;
     }
 #endif

@@ -261,21 +261,20 @@ __global__ void GroupNormForward(const T* x,
 }
 
 template <typename T>
-class GroupNormKernel<platform::CUDADeviceContext, T>
-    : public framework::OpKernel<T> {
+class GroupNormKernel<phi::GPUContext, T> : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext& ctx) const override {
     const std::string data_layout_str = ctx.Attr<std::string>("data_layout");
     const DataLayout data_layout =
         framework::StringToDataLayout(data_layout_str);
     const float epsilon = ctx.Attr<float>("epsilon");
-    auto* scale = ctx.Input<Tensor>("Scale");
-    auto* bias = ctx.Input<Tensor>("Bias");
-    auto* x = ctx.Input<Tensor>("X");
+    auto* scale = ctx.Input<phi::DenseTensor>("Scale");
+    auto* bias = ctx.Input<phi::DenseTensor>("Bias");
+    auto* x = ctx.Input<phi::DenseTensor>("X");
 
-    auto* y = ctx.Output<Tensor>("Y");
-    auto* mean = ctx.Output<Tensor>("Mean");
-    auto* var = ctx.Output<Tensor>("Variance");
+    auto* y = ctx.Output<phi::DenseTensor>("Y");
+    auto* mean = ctx.Output<phi::DenseTensor>("Mean");
+    auto* var = ctx.Output<phi::DenseTensor>("Variance");
     const auto groups = ctx.Attr<int>("groups");
 
     const auto x_dims = x->dims();
@@ -291,8 +290,8 @@ class GroupNormKernel<platform::CUDADeviceContext, T>
     y->mutable_data<T>(ctx.GetPlace());
     mean->mutable_data<T>(ctx.GetPlace());
     var->mutable_data<T>(ctx.GetPlace());
-    phi::funcs::SetConstant<platform::CUDADeviceContext, T> set_zero;
-    auto& dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
+    phi::funcs::SetConstant<phi::GPUContext, T> set_zero;
+    auto& dev_ctx = ctx.template device_context<phi::GPUContext>();
     Tensor temp_var;
     temp_var.mutable_data<T>(var->dims(), ctx.GetPlace());
     auto* x_data = x->data<T>();
@@ -428,8 +427,21 @@ __global__ void GroupNormBackwardGetMeanAndVar(const T* x,
   }
   CudaAtomicAddWithWarp(&(d_mean[bid * groups + gid]), d_mean_data);
   CudaAtomicAddWithWarp(&(d_var[bid * groups + gid]), d_var_data);
-  if (flags & kHasScale) CudaAtomicAddWithWarp(&(d_scale[ccid]), d_scale_data);
-  if (flags & kHasBias) CudaAtomicAddWithWarp(&(d_bias[ccid]), d_bias_data);
+
+  if (flags & kHasScale) {
+#if CUDA_VERSION >= 11070
+    platform::CudaAtomicAdd(&(d_scale[ccid]), d_scale_data);
+#else
+    CudaAtomicAddWithWarp(&(d_scale[ccid]), d_scale_data);
+#endif
+  }
+  if (flags & kHasBias) {
+#if CUDA_VERSION >= 11070
+    platform::CudaAtomicAdd(&(d_bias[ccid]), d_bias_data);
+#else
+    CudaAtomicAddWithWarp(&(d_bias[ccid]), d_bias_data);
+#endif
+  }
 }
 
 template <typename T, int flags>
@@ -597,27 +609,27 @@ __global__ void GetXGradientCUDAKernel(int imsize,
 }
 
 template <typename T>
-class GroupNormGradKernel<platform::CUDADeviceContext, T>
-    : public framework::OpKernel<T> {
+class GroupNormGradKernel<phi::GPUContext, T> : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext& ctx) const override {
     const std::string data_layout_str = ctx.Attr<std::string>("data_layout");
     const DataLayout data_layout =
         framework::StringToDataLayout(data_layout_str);
     const float epsilon = ctx.Attr<float>("epsilon");
-    auto* x = ctx.Input<Tensor>("X");
-    auto* y = ctx.Input<Tensor>("Y");
-    auto* mean = ctx.Input<Tensor>("Mean");
-    auto* var = ctx.Input<Tensor>("Variance");
-    auto* scale = ctx.Input<Tensor>("Scale");
-    auto* bias = ctx.Input<Tensor>("Bias");
-    auto* d_y = ctx.Input<Tensor>(framework::GradVarName("Y"));
+    auto* x = ctx.Input<phi::DenseTensor>("X");
+    auto* y = ctx.Input<phi::DenseTensor>("Y");
+    auto* mean = ctx.Input<phi::DenseTensor>("Mean");
+    auto* var = ctx.Input<phi::DenseTensor>("Variance");
+    auto* scale = ctx.Input<phi::DenseTensor>("Scale");
+    auto* bias = ctx.Input<phi::DenseTensor>("Bias");
+    auto* d_y = ctx.Input<phi::DenseTensor>(framework::GradVarName("Y"));
     const auto groups = ctx.Attr<int>("groups");
 
     // init output
-    auto* d_x = ctx.Output<Tensor>(framework::GradVarName("X"));
-    auto* d_scale = ctx.Output<Tensor>(framework::GradVarName("Scale"));
-    auto* d_bias = ctx.Output<Tensor>(framework::GradVarName("Bias"));
+    auto* d_x = ctx.Output<phi::DenseTensor>(framework::GradVarName("X"));
+    auto* d_scale =
+        ctx.Output<phi::DenseTensor>(framework::GradVarName("Scale"));
+    auto* d_bias = ctx.Output<phi::DenseTensor>(framework::GradVarName("Bias"));
 
     const auto& x_dims = x->dims();
     const int C =
@@ -629,8 +641,8 @@ class GroupNormGradKernel<platform::CUDADeviceContext, T>
                                           : x_dims[x_dims.size() - 2]);
 
     d_x->mutable_data<T>(ctx.GetPlace());
-    phi::funcs::SetConstant<platform::CUDADeviceContext, T> set_zero;
-    auto& dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
+    phi::funcs::SetConstant<phi::GPUContext, T> set_zero;
+    auto& dev_ctx = ctx.template device_context<phi::GPUContext>();
 
     Tensor ds, db;
     ds.mutable_data<T>({x_dims[0], C}, ctx.GetPlace());
@@ -816,11 +828,9 @@ class GroupNormGradKernel<platform::CUDADeviceContext, T>
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-REGISTER_OP_CUDA_KERNEL(
-    group_norm,
-    ops::GroupNormKernel<paddle::platform::CUDADeviceContext, float>,
-    ops::GroupNormKernel<paddle::platform::CUDADeviceContext, double>);
-REGISTER_OP_CUDA_KERNEL(
-    group_norm_grad,
-    ops::GroupNormGradKernel<paddle::platform::CUDADeviceContext, float>,
-    ops::GroupNormGradKernel<paddle::platform::CUDADeviceContext, double>);
+REGISTER_OP_CUDA_KERNEL(group_norm,
+                        ops::GroupNormKernel<phi::GPUContext, float>,
+                        ops::GroupNormKernel<phi::GPUContext, double>);
+REGISTER_OP_CUDA_KERNEL(group_norm_grad,
+                        ops::GroupNormGradKernel<phi::GPUContext, float>,
+                        ops::GroupNormGradKernel<phi::GPUContext, double>);

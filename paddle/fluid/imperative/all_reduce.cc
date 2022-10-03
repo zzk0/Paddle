@@ -53,8 +53,8 @@ static const platform::Place &GetVarPlace(const framework::Variable &src) {
   }
 }
 
-static void AllReduce(const framework::Tensor &src,
-                      framework::Tensor *dst,
+static void AllReduce(const phi::DenseTensor &src,
+                      phi::DenseTensor *dst,
                       const gpuStream_t stream,
                       const platform::NCCLComm *comm) {
   const auto &place = src.place();
@@ -95,7 +95,7 @@ static void AllReduce(const phi::SelectedRows &src,
 
   auto dtype = framework::TransToProtoVarType(src_tensor.dtype());
   auto nccl_dtype = platform::ToNCCLDataType(dtype);
-  auto *dev_ctx = static_cast<platform::CUDADeviceContext *>(
+  auto *dev_ctx = static_cast<phi::GPUContext *>(
       platform::DeviceContextPool::Instance().Get(place));
 
   bool use_calc_stream = (dev_ctx->stream() == stream);
@@ -220,7 +220,7 @@ void AllReduce(const framework::Variable &src,
                int ring_id,
                bool use_calc_stream) {
   const auto &place = GetVarPlace(src);
-  auto *dev_ctx = static_cast<platform::CUDADeviceContext *>(
+  auto *dev_ctx = static_cast<phi::GPUContext *>(
       platform::DeviceContextPool::Instance().Get(place));
   platform::NCCLComm *comm =
       platform::NCCLCommContext::Instance().Get(ring_id, place);

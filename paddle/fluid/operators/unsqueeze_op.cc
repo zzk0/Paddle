@@ -154,7 +154,7 @@ class UnsqueezeOp : public framework::OperatorWithKernel {
 
   framework::OpKernelType GetKernelTypeForVar(
       const std::string &var_name,
-      const framework::Tensor &tensor,
+      const phi::DenseTensor &tensor,
       const framework::OpKernelType &expected_kernel_type) const override {
     if (var_name == "AxesTensor" || var_name == "AxesTensorList") {
       return expected_kernel_type;
@@ -347,7 +347,7 @@ DECLARE_NO_NEED_BUFFER_VARS_INFERER(UnsqueezeGradOpNoNeedBufferVarInferer, "X");
 
 DECLARE_INFER_SHAPE_FUNCTOR(unsqueeze2,
                             Unsqueeze2InferShapeFunctor,
-                            PD_INFER_META(phi::UnsqueezeInferMeta));
+                            PD_INFER_META(phi::UnsqueezeWithXShapeInferMeta));
 
 namespace ops = paddle::operators;
 REGISTER_OPERATOR(unsqueeze,

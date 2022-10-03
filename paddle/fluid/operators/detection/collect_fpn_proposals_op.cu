@@ -33,7 +33,7 @@ namespace cub = hipcub;
 namespace paddle {
 namespace operators {
 
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 using LoDTensor = framework::LoDTensor;
 
 static constexpr int kNumCUDAThreads = 64;
@@ -89,12 +89,12 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
     int lod_size;
     auto place = dev_ctx.GetPlace();
 
-    auto multi_rois_num = ctx.MultiInput<Tensor>("MultiLevelRoIsNum");
+    auto multi_rois_num = ctx.MultiInput<phi::DenseTensor>("MultiLevelRoIsNum");
     for (size_t i = 0; i < roi_ins.size(); ++i) {
       auto roi_in = roi_ins[i];
       auto score_in = score_ins[i];
       if (multi_rois_num.size() > 0) {
-        framework::Tensor temp;
+        phi::DenseTensor temp;
         paddle::framework::TensorCopySync(
             *multi_rois_num[i], platform::CPUPlace(), &temp);
         const int* length_in = temp.data<int>();
@@ -138,8 +138,7 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
     Tensor index_in_t;
     int* idx_in =
         index_in_t.mutable_data<int>({total_roi_num}, dev_ctx.GetPlace());
-    platform::ForRange<platform::CUDADeviceContext> for_range_total(
-        dev_ctx, total_roi_num);
+    platform::ForRange<phi::GPUContext> for_range_total(dev_ctx, total_roi_num);
     for_range_total(RangeInitFunctor{0, 1, idx_in});
 
     Tensor keys_out_t;
@@ -188,8 +187,7 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
     Tensor batch_index_t;
     int* batch_idx_in =
         batch_index_t.mutable_data<int>({real_post_num}, dev_ctx.GetPlace());
-    platform::ForRange<platform::CUDADeviceContext> for_range_post(
-        dev_ctx, real_post_num);
+    platform::ForRange<phi::GPUContext> for_range_post(dev_ctx, real_post_num);
     for_range_post(RangeInitFunctor{0, 1, batch_idx_in});
 
     Tensor out_id_t;
@@ -228,7 +226,7 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
     Tensor length_lod;
     int* length_lod_data =
         length_lod.mutable_data<int>({lod_size}, dev_ctx.GetPlace());
-    phi::funcs::SetConstant<platform::CUDADeviceContext, int> set_zero;
+    phi::funcs::SetConstant<phi::GPUContext, int> set_zero;
     set_zero(dev_ctx, &length_lod, static_cast<int>(0));
 
     int blocks = NumBlocks(real_post_num);
@@ -252,7 +250,7 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
     }
 
     if (ctx.HasOutput("RoisNum")) {
-      auto* rois_num = ctx.Output<Tensor>("RoisNum");
+      auto* rois_num = ctx.Output<phi::DenseTensor>("RoisNum");
       int* rois_num_data = rois_num->mutable_data<int>({lod_size}, place);
       memory::Copy(place,
                    rois_num_data,
@@ -274,7 +272,5 @@ class GPUCollectFpnProposalsOpKernel : public framework::OpKernel<T> {
 namespace ops = paddle::operators;
 REGISTER_OP_CUDA_KERNEL(
     collect_fpn_proposals,
-    ops::GPUCollectFpnProposalsOpKernel<paddle::platform::CUDADeviceContext,
-                                        float>,
-    ops::GPUCollectFpnProposalsOpKernel<paddle::platform::CUDADeviceContext,
-                                        double>);
+    ops::GPUCollectFpnProposalsOpKernel<phi::GPUContext, float>,
+    ops::GPUCollectFpnProposalsOpKernel<phi::GPUContext, double>);

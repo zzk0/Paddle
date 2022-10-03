@@ -14,7 +14,6 @@ limitations under the License. */
 #include <utf8proc.h>
 
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
 #include <chrono>
 #include <codecvt>
 #include <fstream>
@@ -478,7 +477,7 @@ class FasterTokenizerOp : public framework::OperatorWithKernel {
 
   framework::OpKernelType GetKernelTypeForVar(
       const std::string& var_name,
-      const framework::Tensor& tensor,
+      const phi::DenseTensor& tensor,
       const framework::OpKernelType& expected_kernel_type) const override {
     return framework::OpKernelType(expected_kernel_type.data_type_,
                                    expected_kernel_type.place_,

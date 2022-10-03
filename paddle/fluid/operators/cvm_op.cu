@@ -22,7 +22,7 @@ namespace paddle {
 namespace operators {
 
 using platform::PADDLE_CUDA_NUM_THREADS;
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 using LoDTensor = framework::LoDTensor;
 
 template <typename T>
@@ -99,8 +99,7 @@ class CVMCUDAKernel : public framework::OpKernel<T> {
     T* y_data = y->mutable_data<T>(context.GetPlace());
 
     // for Input X do not have Lod Information.
-    auto stream =
-        context.template device_context<platform::CUDADeviceContext>().stream();
+    auto stream = context.template device_context<phi::GPUContext>().stream();
     if (x->NumLevels() == 0) {
       CvmComputeKernel<<<(numel + PADDLE_CUDA_NUM_THREADS - 1) /
                              PADDLE_CUDA_NUM_THREADS,
@@ -132,7 +131,7 @@ class CVMGradCUDAKernel : public framework::OpKernel<T> {
     auto* dx = context.Output<LoDTensor>(framework::GradVarName("X"));
     T* dx_data = dx->mutable_data<T>(context.GetPlace());
 
-    const Tensor* cvm = context.Input<Tensor>("CVM");
+    const phi::DenseTensor* cvm = context.Input<phi::DenseTensor>("CVM");
     const T* cvm_data = cvm->data<T>();
 
     const auto* dOut =
@@ -147,8 +146,7 @@ class CVMGradCUDAKernel : public framework::OpKernel<T> {
     auto item_size = dx_numel / batch_size;
 
     // for Input X do not have Lod Information.
-    auto stream =
-        context.template device_context<platform::CUDADeviceContext>().stream();
+    auto stream = context.template device_context<phi::GPUContext>().stream();
     if (dx->NumLevels() == 0) {
       CvmGradComputeKernel<<<(dx_numel + PADDLE_CUDA_NUM_THREADS - 1) /
                                  PADDLE_CUDA_NUM_THREADS,

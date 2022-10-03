@@ -111,9 +111,9 @@ struct HardLabelCrossEntropyCUDAFunctorImpl {
 template <typename DeviceContext, typename T>
 void CrossEntropyFunctor<DeviceContext, T>::operator()(
     const DeviceContext& ctx,
-    framework::Tensor* out,
-    const framework::Tensor* prob,
-    const framework::Tensor* labels,
+    phi::DenseTensor* out,
+    const phi::DenseTensor* prob,
+    const phi::DenseTensor* labels,
     const bool softLabel,
     const int ignore_index,
     const int axis_dim) {
@@ -149,11 +149,6 @@ void CrossEntropyFunctor<DeviceContext, T>::operator()(
                              functor);
   }
 }
-
-template class CrossEntropyFunctor<platform::CUDADeviceContext, float>;
-template class CrossEntropyFunctor<platform::CUDADeviceContext, double>;
-template class CrossEntropyFunctor<platform::CUDADeviceContext,
-                                   platform::float16>;
 
 template class CrossEntropyFunctor<phi::GPUContext, float>;
 template class CrossEntropyFunctor<phi::GPUContext, double>;

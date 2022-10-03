@@ -50,20 +50,21 @@ USE_OP_ITSELF(concat_grad);
 USE_OP_ITSELF(elementwise_mul_grad);
 USE_OP_ITSELF(sigmoid_grad);
 USE_OP_ITSELF(tanh_grad);
-USE_OP(sum);
+USE_OP_ITSELF(sum);
 USE_OP_ITSELF(slice_grad);
 USE_OP_ITSELF(lookup_table_grad);
 USE_OP_ITSELF(sqrt);
 USE_OP_ITSELF(elementwise_max);
 USE_OP_ITSELF(elementwise_div);
 USE_OP_ITSELF(sgd);
-USE_OP(squared_l2_norm);
+USE_OP_ITSELF(squared_l2_norm);
 USE_OP_ITSELF(memcpy_h2d);
 USE_OP_ITSELF(memcpy_d2h);
 USE_OP_ITSELF(fetch_v2);
 
 PD_DECLARE_KERNEL(full, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(uniform_random_raw, GPU, ALL_LAYOUT);
+PD_DECLARE_KERNEL(uniform_random, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(transpose, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(reshape, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(split, GPU, ALL_LAYOUT);
@@ -87,6 +88,7 @@ PD_DECLARE_KERNEL(mean, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(mean_grad, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(sigmoid, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(sigmoid_grad, GPU, ALL_LAYOUT);
+PD_DECLARE_KERNEL(squared_l2_norm, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(reshape_grad, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(add_grad, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(matmul_grad, GPU, ALL_LAYOUT);
@@ -99,6 +101,7 @@ PD_DECLARE_KERNEL(slice_grad, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(cross_entropy_with_softmax, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(cross_entropy_with_softmax_grad, GPU, ALL_LAYOUT);
 PD_DECLARE_KERNEL(sqrt, GPU, ALL_LAYOUT);
+PD_DECLARE_KERNEL(add_n, GPU, ALL_LAYOUT);
 
 namespace paddle {
 namespace framework {
@@ -121,17 +124,17 @@ ProgramDesc GetLmMainProgram() {
   int64_t batch_size = 20;
 
   auto& op1 = global_block.AllOps()[1];
-  auto shape1 = BOOST_GET_CONST(std::vector<int64_t>, op1->GetAttr("shape"));
+  auto shape1 = PADDLE_GET_CONST(std::vector<int64_t>, op1->GetAttr("shape"));
   shape1[0] = batch_size * 20;
   op1->SetAttr("shape", shape1);
 
   auto& op2 = global_block.AllOps()[2];
-  auto shape2 = BOOST_GET_CONST(std::vector<int64_t>, op2->GetAttr("shape"));
+  auto shape2 = PADDLE_GET_CONST(std::vector<int64_t>, op2->GetAttr("shape"));
   shape2[0] = batch_size;
   op2->SetAttr("shape", shape2);
 
   auto& op3 = global_block.AllOps()[3];
-  auto shape3 = BOOST_GET_CONST(std::vector<int64_t>, op3->GetAttr("shape"));
+  auto shape3 = PADDLE_GET_CONST(std::vector<int64_t>, op3->GetAttr("shape"));
   shape3[0] = batch_size;
   op3->SetAttr("shape", shape3);
   return main_prog;
@@ -228,7 +231,7 @@ void TestShareWorkQueue(const ProgramDesc& prog,
     FetchList fetch_list = core->Run(feed_names, feed_tensors);
     for (size_t i = 0; i < fetch_list.size(); ++i) {
       const float* fetch_data =
-          BOOST_GET_CONST(LoDTensor, fetch_list[i]).data<float>();
+          PADDLE_GET_CONST(LoDTensor, fetch_list[i]).data<float>();
       ASSERT_FLOAT_EQ(*fetch_data, fetch_results.at(i));
     }
   };

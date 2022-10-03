@@ -38,7 +38,7 @@ static void DeepCopy(const framework::LoDTensor &src_item,
 #ifdef PADDLE_WITH_MKLDNN
     // Conversion from MKL-DNN to Paddle
     if (src_item.layout() == framework::DataLayout::kMKLDNN) {
-      framework::Tensor out;
+      phi::DenseTensor out;
       // Convert to desired Paddle layout, apart from grads of filter
       // as params are not a subject to paddle's data_format
       framework::innerTransDataLayoutFromMKLDNN(
@@ -75,7 +75,7 @@ class FetchV2Op : public framework::OperatorWithKernel {
  protected:
   framework::OpKernelType GetKernelTypeForVar(
       const std::string &var_name,
-      const framework::Tensor &tensor,
+      const phi::DenseTensor &tensor,
       const framework::OpKernelType &expected_kernel_type) const override {
     if (!tensor.IsInitialized()) {
       return expected_kernel_type;
@@ -95,6 +95,12 @@ class FetchV2Op : public framework::OperatorWithKernel {
     if (fetch_var->IsType<framework::LoDTensor>()) {
       auto &src_item = fetch_var->Get<framework::LoDTensor>();
       if (!src_item.IsInitialized()) {
+        return framework::OpKernelType(framework::proto::VarType::FP32,
+                                       platform::CPUPlace());
+      }
+    } else if (fetch_var->IsType<phi::SparseCooTensor>()) {
+      auto &src_item = fetch_var->Get<phi::SparseCooTensor>();
+      if (!src_item.initialized()) {
         return framework::OpKernelType(framework::proto::VarType::FP32,
                                        platform::CPUPlace());
       }
@@ -149,7 +155,7 @@ class FetchV2Kernel {
       if (!src_item.IsInitialized()) {
         return;
       }
-      auto *dst_item = &(BOOST_GET(framework::LoDTensor, fetch_list->at(col)));
+      auto *dst_item = &(PADDLE_GET(framework::LoDTensor, fetch_list->at(col)));
       bool check_place = platform::is_cpu_place(src_item.place()) ||
                          platform::is_cuda_pinned_place(src_item.place());
       PADDLE_ENFORCE_EQ(
@@ -163,12 +169,18 @@ class FetchV2Kernel {
         dst_item->ShareDataWith(src_item);
         dst_item->set_lod(src_item.lod());
       }
+    } else if (fetch_var->IsType<phi::SparseCooTensor>()) {
+      auto &src_item = fetch_var->Get<phi::SparseCooTensor>();
+      if (!src_item.initialized()) {
+        return;
+      }
+      fetch_list->at(col) = src_item;
     } else {
       auto &src_item = fetch_var->Get<framework::LoDTensorArray>();
       framework::LoDTensorArray tmp(src_item.size());
       fetch_list->at(col) = tmp;
       auto &dst_item =
-          BOOST_GET(framework::LoDTensorArray, fetch_list->at(col));
+          PADDLE_GET(framework::LoDTensorArray, fetch_list->at(col));
       for (size_t i = 0; i < src_item.size(); ++i) {
         PADDLE_ENFORCE_EQ(platform::is_cpu_place(src_item[i].place()),
                           true,

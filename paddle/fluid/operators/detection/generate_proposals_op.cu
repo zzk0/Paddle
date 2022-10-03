@@ -28,13 +28,13 @@ limitations under the License. */
 namespace paddle {
 namespace operators {
 
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 using LoDTensor = framework::LoDTensor;
 
 namespace {
 template <typename T>
 static std::pair<Tensor, Tensor> ProposalForOneImage(
-    const platform::CUDADeviceContext &ctx,
+    const phi::GPUContext &ctx,
     const Tensor &im_info,
     const Tensor &anchors,
     const Tensor &variances,
@@ -59,7 +59,7 @@ static std::pair<Tensor, Tensor> ProposalForOneImage(
   proposals.mutable_data<T>({pre_nms_num, 4}, ctx.GetPlace());
 
   {
-    platform::ForRange<platform::CUDADeviceContext> for_range(ctx, pre_nms_num);
+    platform::ForRange<phi::GPUContext> for_range(ctx, pre_nms_num);
     for_range(BoxDecodeAndClipFunctor<T>{anchors.data<T>(),
                                          bbox_deltas.data<T>(),
                                          variances.data<T>(),
@@ -94,7 +94,7 @@ static std::pair<Tensor, Tensor> ProposalForOneImage(
   Tensor scores_filter, proposals_filter;
   // Handle the case when there is no keep index left
   if (keep_num == 0) {
-    phi::funcs::SetConstant<platform::CUDADeviceContext, T> set_zero;
+    phi::funcs::SetConstant<phi::GPUContext, T> set_zero;
     proposals_filter.mutable_data<T>({1, 4}, ctx.GetPlace());
     scores_filter.mutable_data<T>({1, 1}, ctx.GetPlace());
     set_zero(ctx, &proposals_filter, static_cast<T>(0));
@@ -131,17 +131,18 @@ template <typename DeviceContext, typename T>
 class CUDAGenerateProposalsKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext &context) const override {
-    auto *scores = context.Input<Tensor>("Scores");
-    auto *bbox_deltas = context.Input<Tensor>("BboxDeltas");
-    auto *im_info = context.Input<Tensor>("ImInfo");
-    auto anchors = GET_DATA_SAFELY(context.Input<Tensor>("Anchors"),
+    auto *scores = context.Input<phi::DenseTensor>("Scores");
+    auto *bbox_deltas = context.Input<phi::DenseTensor>("BboxDeltas");
+    auto *im_info = context.Input<phi::DenseTensor>("ImInfo");
+    auto anchors = GET_DATA_SAFELY(context.Input<phi::DenseTensor>("Anchors"),
                                    "Input",
                                    "Anchors",
                                    "GenerateProposals");
-    auto variances = GET_DATA_SAFELY(context.Input<Tensor>("Variances"),
-                                     "Input",
-                                     "Variances",
-                                     "GenerateProposals");
+    auto variances =
+        GET_DATA_SAFELY(context.Input<phi::DenseTensor>("Variances"),
+                        "Input",
+                        "Variances",
+                        "GenerateProposals");
 
     auto *rpn_rois = context.Output<LoDTensor>("RpnRois");
     auto *rpn_roi_probs = context.Output<LoDTensor>("RpnRoiProbs");
@@ -240,7 +241,7 @@ class CUDAGenerateProposalsKernel : public framework::OpKernel<T> {
       tmp_num.push_back(proposals.dims()[0]);
     }
     if (context.HasOutput("RpnRoisNum")) {
-      auto *rpn_rois_num = context.Output<Tensor>("RpnRoisNum");
+      auto *rpn_rois_num = context.Output<phi::DenseTensor>("RpnRoisNum");
       rpn_rois_num->mutable_data<int>({num}, context.GetPlace());
       int *num_data = rpn_rois_num->data<int>();
       memory::Copy(place,
@@ -266,5 +267,4 @@ class CUDAGenerateProposalsKernel : public framework::OpKernel<T> {
 namespace ops = paddle::operators;
 REGISTER_OP_CUDA_KERNEL(
     generate_proposals,
-    ops::CUDAGenerateProposalsKernel<paddle::platform::CUDADeviceContext,
-                                     float>);
+    ops::CUDAGenerateProposalsKernel<phi::GPUContext, float>);

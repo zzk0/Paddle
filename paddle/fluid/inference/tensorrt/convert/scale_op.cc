@@ -46,11 +46,11 @@ class ScaleOpConverter : public OpConverter {
 
     auto input = engine_->GetITensor(input_name);
     bool bias_after_scale =
-        BOOST_GET_CONST(bool, op_desc.GetAttr("bias_after_scale"));
-    float bias = BOOST_GET_CONST(float, op_desc.GetAttr("bias"));
-    float scale = BOOST_GET_CONST(float, op_desc.GetAttr("scale"));
+        PADDLE_GET_CONST(bool, op_desc.GetAttr("bias_after_scale"));
+    float bias = PADDLE_GET_CONST(float, op_desc.GetAttr("bias"));
+    float scale = PADDLE_GET_CONST(float, op_desc.GetAttr("scale"));
     auto create_weights = [&](float data, std::string type) -> float* {
-      std::unique_ptr<framework::Tensor> tmp_tensor(new framework::Tensor());
+      std::unique_ptr<phi::DenseTensor> tmp_tensor(new phi::DenseTensor());
       tmp_tensor->Resize({1});
       auto* tmp_data = tmp_tensor->mutable_data<float>(platform::CPUPlace());
       tmp_data[0] = data;

@@ -132,15 +132,15 @@ int FCFusePass::ApplyFCPattern(Graph* graph, bool with_relu) const {
     GET_IR_NODE_FROM_SUBGRAPH(elementwise_add, elementwise_add, fc_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(mul_out, mul_out, fc_pattern);
 
-    // Only support 2D-Tensor as weight for FC
+    // Only support 2D-phi::DenseTensor as weight for FC
     std::vector<int64_t> w_shape = w->Var()->GetShape();
     size_t w_rank = w_shape.size();
     if (w_rank != 2) return;
 
     // axis of elementwise_add should be -1 or x_num_col_dims
     auto x_num_col_dims =
-        BOOST_GET_CONST(int, mul->Op()->GetAttr("x_num_col_dims"));
-    auto axis = BOOST_GET_CONST(int, elementwise_add->Op()->GetAttr("axis"));
+        PADDLE_GET_CONST(int, mul->Op()->GetAttr("x_num_col_dims"));
+    auto axis = PADDLE_GET_CONST(int, elementwise_add->Op()->GetAttr("axis"));
     if (axis != -1 && axis != x_num_col_dims) return;
 
     // Shape of bias should be [1, out_size] or [out_size]
@@ -263,7 +263,7 @@ int FCFusePass::ApplyFCPattern(Graph* graph, bool with_relu) const {
         elementwise_add_op_desc->GetNullableAttr("out_threshold");
     if (out_threshold_attr.index()) {
       VLOG(4) << "setting out_threshold: "
-              << BOOST_GET_CONST(float, out_threshold_attr);
+              << PADDLE_GET_CONST(float, out_threshold_attr);
       desc.SetAttr("out_threshold", out_threshold_attr);
     }
     desc.Flush();

@@ -88,6 +88,11 @@ void Tensor::ReshapeStrings(const size_t &shape) {
 
 template <typename T>
 T *Tensor::mutable_data(PlaceType place) {
+#ifdef PADDLE_WITH_ONNXRUNTIME
+  if (is_ort_tensor_) {
+    return ORTGetMutableData<T>();
+  }
+#endif
   EAGER_GET_TENSOR(paddle::framework::LoDTensor);
   PADDLE_ENFORCE_GT(
       tensor->numel(),
@@ -362,7 +367,7 @@ void Tensor::CopyToCpuImpl(T *data,
   auto *t_data = tensor->data<T>();
   auto t_place = tensor->place();
 
-  paddle::framework::Tensor out;
+  phi::DenseTensor out;
   auto mem_allocation =
       std::make_shared<paddle::memory::allocation::Allocation>(
           static_cast<void *>(data),
@@ -720,8 +725,15 @@ void Tensor::SetOrtBinding(const std::shared_ptr<Ort::IoBinding> binding) {
   binding_ = binding;
 }
 
-void Tensor::SetOrtBuffer(const std::shared_ptr<std::vector<int8_t>> buffer) {
-  buffer_ = buffer;
+template <typename T>
+T *Tensor::ORTGetMutableData() {
+  auto binding = binding_.lock();
+  PADDLE_ENFORCE_NOT_NULL(binding,
+                          paddle::platform::errors::PreconditionNotMet(
+                              "output tensor [%s] no binding ptr", name_));
+  std::vector<Ort::Value> outputs = binding->GetOutputValues();
+  Ort::Value &value = outputs[idx_];
+  return value.GetTensorMutableData<T>();
 }
 
 template <typename T>
@@ -831,7 +843,7 @@ void InternalUtils::CopyToCpuWithIoStream(paddle_infer::Tensor *t,
   auto *t_data = tensor->data<T>();
   auto t_place = tensor->place();
 
-  paddle::framework::Tensor out;
+  phi::DenseTensor out;
   auto mem_allocation =
       std::make_shared<paddle::memory::allocation::Allocation>(
           static_cast<void *>(data),

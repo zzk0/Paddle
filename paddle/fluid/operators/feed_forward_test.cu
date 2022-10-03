@@ -42,7 +42,7 @@ void GetLinearOp(const std::vector<T> &x,
                  const std::vector<T> &y,
                  const framework::DDim &x_dim,
                  const framework::DDim &y_dim,
-                 const platform::CUDADeviceContext &ctx,
+                 const phi::GPUContext &ctx,
                  bool transpose_a,
                  bool transpose_b,
                  float alpha,
@@ -87,7 +87,7 @@ void GetElementwiseAddOp(const std::vector<T> &x,
                          const std::vector<T> &y,
                          const int bsz_seq,
                          const int output_size,
-                         const platform::CUDADeviceContext &ctx,
+                         const phi::GPUContext &ctx,
                          std::vector<T> *out) {
   framework::Scope scope;
   auto var_x = scope.Var("X");
@@ -128,7 +128,7 @@ void GetLinearOpGrad(const std::vector<T> &x_vec,
                      const framework::DDim &x_dim,
                      const framework::DDim &y_dim,
                      const framework::DDim &out_dim,
-                     const platform::CUDADeviceContext &ctx,
+                     const phi::GPUContext &ctx,
                      bool transpose_a,
                      bool transpose_b,
                      float alpha,
@@ -218,7 +218,7 @@ template <typename T>
 void GetElementwiseAddOpGrad(const std::vector<T> &dout_vec,
                              const int bsz_seq,
                              const int output_size,
-                             const platform::CUDADeviceContext &ctx,
+                             const phi::GPUContext &ctx,
                              std::vector<T> *dy_vec) {
   framework::Scope scope;
   auto var_x = scope.Var("X");
@@ -308,7 +308,7 @@ class TestFeedForward {
     bsz_seq_ = batch_size_ * seq_len_;
     output_size_ = 3 * num_head_ * dim_head_;
     input_size_ = dim_embed_;
-    ctx_ = new platform::CUDADeviceContext(place_);
+    ctx_ = new phi::GPUContext(place_);
     ctx_->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
                            .GetAllocator(place_, ctx_->stream())
                            .get());
@@ -549,8 +549,8 @@ class TestFeedForward {
   bool has_bias_;
   int size_src_, size_weight_, size_bias_, size_output_;
 
-  framework::Tensor src_, weight_, bias_, out_, bias_out_;
-  framework::Tensor dinput_, dweight_, dbias_, doutput_;
+  phi::DenseTensor src_, weight_, bias_, out_, bias_out_;
+  phi::DenseTensor dinput_, dweight_, dbias_, doutput_;
   std::vector<T> src_vec_, weight_vec_, bias_vec_, out_vec_, bias_out_vec_;
   std::vector<T> dinput_vec_, dweight_vec_, dbias_vec_, doutput_vec_;
 
@@ -559,7 +559,7 @@ class TestFeedForward {
   std::vector<T> base_dinput_vec_, base_dweight_vec_, base_dbias_vec_;
 
   platform::CUDAPlace place_;
-  platform::CUDADeviceContext *ctx_;
+  phi::GPUContext *ctx_;
 };
 
 // test for fp32, fp16, fp32+bias and fp16+bias

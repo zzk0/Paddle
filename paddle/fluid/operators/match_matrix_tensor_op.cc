@@ -24,7 +24,7 @@ limitations under the License. */
 
 namespace paddle {
 namespace operators {
-using Tensor = framework::Tensor;
+using Tensor = phi::DenseTensor;
 using LoDTensor = framework::LoDTensor;
 using LoD = framework::LoD;
 
@@ -91,7 +91,7 @@ void MatchMatrixTensorOP::InferShape(framework::InferShapeContext* ctx) const {
   int64_t tmp_dim_0 = -1;
   if (ctx->IsRuntime()) {
     framework::Variable* x_var =
-        BOOST_GET(framework::Variable*, ctx->GetInputVarPtrs("X")[0]);
+        PADDLE_GET(framework::Variable*, ctx->GetInputVarPtrs("X")[0]);
     const auto& x_lod = x_var->Get<LoDTensor>().lod();
     PADDLE_ENFORCE_EQ(x_lod.empty(),
                       false,
@@ -116,7 +116,7 @@ void MatchMatrixTensorOP::InferShape(framework::InferShapeContext* ctx) const {
                           x_dims[0]));
 
     framework::Variable* y_var =
-        BOOST_GET(framework::Variable*, ctx->GetInputVarPtrs("Y")[0]);
+        PADDLE_GET(framework::Variable*, ctx->GetInputVarPtrs("Y")[0]);
     const auto& y_lod = y_var->Get<LoDTensor>().lod();
     PADDLE_ENFORCE_EQ(y_lod.empty(),
                       false,
@@ -162,7 +162,7 @@ void MatchMatrixTensorOP::InferShape(framework::InferShapeContext* ctx) const {
   } else {
     // compile time
     framework::VarDesc* x_desc =
-        BOOST_GET(framework::VarDesc*, ctx->GetInputVarPtrs("X")[0]);
+        PADDLE_GET(framework::VarDesc*, ctx->GetInputVarPtrs("X")[0]);
     PADDLE_ENFORCE_GE(
         x_desc->GetLoDLevel(),
         1,
@@ -170,7 +170,7 @@ void MatchMatrixTensorOP::InferShape(framework::InferShapeContext* ctx) const {
                                           "greater than 1, but reviced %d.",
                                           x_desc->GetLoDLevel()));
     framework::VarDesc* y_desc =
-        BOOST_GET(framework::VarDesc*, ctx->GetInputVarPtrs("Y")[0]);
+        PADDLE_GET(framework::VarDesc*, ctx->GetInputVarPtrs("Y")[0]);
     PADDLE_ENFORCE_GE(
         y_desc->GetLoDLevel(),
         1,
@@ -230,9 +230,9 @@ void MatchMatrixTensorOpMaker::Make() {
       Match Matrix Tensor Operator
 
       This operator calculate X * W * Y, only support 2-D for X and Y.
-      the output is a level-1 LodTensor: 
+      the output is a level-1 LodTensor:
         level_0: dim_t
-      
+
       NOTE: only support 'float32' data type now.
 
     )DOC");
@@ -244,7 +244,7 @@ class CPUMatchMatrixTensorOPKernel : public framework::OpKernel<T> {
   void Compute(const framework::ExecutionContext& ctx) const override {
     auto* x = ctx.Input<LoDTensor>("X");
     auto* y = ctx.Input<LoDTensor>("Y");
-    auto* w = ctx.Input<Tensor>("W");
+    auto* w = ctx.Input<phi::DenseTensor>("W");
     auto* out = ctx.Output<LoDTensor>("Out");
     auto* tmp = ctx.Output<LoDTensor>("Tmp");
 
@@ -324,7 +324,7 @@ class CPUMatchMatrixTensorOPGradKernel : public framework::OpKernel<T> {
   void Compute(const framework::ExecutionContext& ctx) const override {
     auto* x = ctx.Input<LoDTensor>("X");
     auto* y = ctx.Input<LoDTensor>("Y");
-    auto* w = ctx.Input<Tensor>("W");
+    auto* w = ctx.Input<phi::DenseTensor>("W");
     auto* tmp = ctx.Input<LoDTensor>("Tmp");
 
     int dim_t = ctx.Attr<int>("dim_t");
@@ -391,7 +391,7 @@ class CPUMatchMatrixTensorOPGradKernel : public framework::OpKernel<T> {
     auto blas = phi::funcs::GetBlas<phi::CPUContext, T>(ctx);
 
     auto* t_data = w->data<T>();
-    auto* d_w = ctx.Output<Tensor>(framework::GradVarName("W"));
+    auto* d_w = ctx.Output<phi::DenseTensor>(framework::GradVarName("W"));
     auto* t_diff = d_w->mutable_data<T>(ctx.GetPlace());
     memset(t_diff, 0.0, w->dims()[0] * w->dims()[1] * w->dims()[2] * sizeof(T));
     // bottom_diff

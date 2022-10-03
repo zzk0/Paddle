@@ -30,7 +30,8 @@ std::mutex ctx_mtx;
 }  // namespace
 
 StreamAnalyzer::StreamAnalyzer(const platform::Place& place) : place_(place) {
-  if (platform::is_gpu_place(place) || platform::is_npu_place(place)) {
+  if (platform::is_gpu_place(place) || platform::is_npu_place(place) ||
+      platform::is_custom_place(place)) {
     std::lock_guard<std::mutex> lk(ctx_mtx);
     if (d2h_ctxs == nullptr) {
       d2h_ctxs = new std::map<
@@ -178,7 +179,8 @@ platform::DeviceContext* StreamAnalyzer::ParseDeviceContext(
   auto* dev_ctx = op_func_node.dev_ctx_;
   // only gpu/npu need update. xpu not need, because xpu memcpy op kernel is
   // synchronous.
-  if (platform::is_gpu_place(place_) || platform::is_npu_place(place_)) {
+  if (platform::is_gpu_place(place_) || platform::is_npu_place(place_) ||
+      platform::is_custom_place(place_)) {
     if (op_type == interpreter::kMemcpyD2H) {
       VLOG(3) << "Get dev_ctx from d2h_context_pool_";
       dev_ctx = d2h_ctx_.get().get();
@@ -204,11 +206,12 @@ bool StreamAnalyzer::IsDirectRun(Instruction& cur_instr,
                                  const Instruction& next_instr) {
   if (&cur_instr.DeviceContext() == &next_instr.DeviceContext()) return true;
 
-  // xpu memcpy kerenl is synchronous.
-  if (platform::is_xpu_place(place_)) return true;
+  // xpu&ipu memcpy kerenl is synchronous.
+  if (platform::is_ipu_place(place_) || platform::is_xpu_place(place_))
+    return true;
 
   // npu d2h kernel is asynchronous.
-  if (platform::is_npu_place(place_)) {
+  if (platform::is_npu_place(place_) || platform::is_custom_place(place_)) {
     return interpreter::IsCpuOp(cur_instr) ||
            interpreter::IsMemcpyH2D(next_instr);
   }
@@ -226,6 +229,8 @@ platform::DeviceType StreamAnalyzer::GetWaiterType(const Instruction& instr) {
       return platform::kXPU;
     } else if (platform::is_npu_place(place_)) {
       return platform::kNPU;
+    } else if (platform::is_custom_place(place_)) {
+      return platform::kCUSTOM_DEVICE;
     }
     return platform::kCUDA;
   }

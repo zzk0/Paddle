@@ -48,7 +48,7 @@ struct GlobalGatherFunctor<phi::GPUContext, T> {
     const int64_t* cpu_global_count_data;
     auto local_count_len = 0;
 
-    framework::Tensor cpu_local_count;
+    phi::DenseTensor cpu_local_count;
     if (platform::is_cpu_place(local_count->place())) {
       cpu_local_count_data = local_count->data<int64_t>();
       local_count_len = local_count->numel();
@@ -59,7 +59,7 @@ struct GlobalGatherFunctor<phi::GPUContext, T> {
       local_count_len = cpu_local_count.numel();
     }
 
-    framework::Tensor cpu_global_count;
+    phi::DenseTensor cpu_global_count;
     if (platform::is_cpu_place(global_count->place())) {
       cpu_global_count_data = global_count->data<int64_t>();
     } else {
@@ -83,7 +83,7 @@ struct GlobalGatherFunctor<phi::GPUContext, T> {
     gpuStream_t stream = nullptr;
     if (ctx.Attr<bool>("use_calc_stream")) {
       auto dev_ctx = platform::DeviceContextPool::Instance().Get(place);
-      stream = static_cast<platform::CUDADeviceContext*>(dev_ctx)->stream();
+      stream = static_cast<phi::GPUContext*>(dev_ctx)->stream();
     } else {
       stream = comm->stream();
     }
@@ -169,7 +169,7 @@ struct GlobalGatherProcessGroupFunctor<phi::GPUContext, T> {
     const int64_t* cpu_global_count_data;
     auto local_count_len = 0;
 
-    framework::Tensor cpu_local_count;
+    phi::DenseTensor cpu_local_count;
     if (platform::is_cpu_place(local_count->place())) {
       cpu_local_count_data = local_count->data<int64_t>();
       local_count_len = local_count->numel();
@@ -180,7 +180,7 @@ struct GlobalGatherProcessGroupFunctor<phi::GPUContext, T> {
       local_count_len = cpu_local_count.numel();
     }
 
-    framework::Tensor cpu_global_count;
+    phi::DenseTensor cpu_global_count;
     if (platform::is_cpu_place(global_count->place())) {
       cpu_global_count_data = global_count->data<int64_t>();
     } else {

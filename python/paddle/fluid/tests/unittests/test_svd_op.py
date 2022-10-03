@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import unittest
 import numpy as np
 import paddle
@@ -29,6 +27,7 @@ class TestSvdOp(OpTest):
 
     def setUp(self):
         paddle.enable_static()
+        self.python_api = paddle.linalg.svd
         self.generate_input()
         self.generate_output()
         self.op_type = "svd"
@@ -55,7 +54,7 @@ class TestSvdOp(OpTest):
         self._output_data = np.linalg.svd(self._input_data)
 
     def test_check_output(self):
-        self.check_output(no_check_set=['U', 'VH'])
+        self.check_output(no_check_set=['U', 'VH'], check_eager=True)
 
     def test_svd_forward(self):
         """ u matmul diag(s) matmul vt must become X
@@ -75,16 +74,22 @@ class TestSvdOp(OpTest):
         paddle.enable_static()
 
     def check_S_grad(self):
-        self.check_grad(['X'], ['S'], numeric_grad_delta=0.001)
+        self.check_grad(['X'], ['S'],
+                        numeric_grad_delta=0.001,
+                        check_eager=True)
 
     def check_U_grad(self):
-        self.check_grad(['X'], ['U'], numeric_grad_delta=0.001)
+        self.check_grad(['X'], ['U'],
+                        numeric_grad_delta=0.001,
+                        check_eager=True)
 
     def check_V_grad(self):
-        self.check_grad(['X'], ['VH'], numeric_grad_delta=0.001)
+        self.check_grad(['X'], ['VH'],
+                        numeric_grad_delta=0.001,
+                        check_eager=True)
 
     def test_check_grad(self):
-        """ 
+        """
         remember the input matrix must be the full rank matrix, otherwise the gradient will stochatic because the u / v 's  (n-k) freedom  vectors
         """
         self.check_S_grad()
@@ -99,7 +104,7 @@ class TestSvdCheckGrad2(TestSvdOp):
     no_need_check_grad = True
 
     def generate_input(self):
-        """ return a deterministic  matrix, the range matrix; 
+        """ return a deterministic  matrix, the range matrix;
             vander matrix must be a full rank matrix.
         """
         self._input_shape = (5, 5)
@@ -110,7 +115,7 @@ class TestSvdCheckGrad2(TestSvdOp):
 class TestSvdNormalMatrixSmall(TestSvdCheckGrad2):
 
     def generate_input(self):
-        """ small matrix SVD. 
+        """ small matrix SVD.
         """
         self._input_shape = (1, 1)
         self._input_data = np.random.random(self._input_shape).astype("float64")
@@ -119,7 +124,7 @@ class TestSvdNormalMatrixSmall(TestSvdCheckGrad2):
 class TestSvdNormalMatrix6x3(TestSvdCheckGrad2):
 
     def generate_input(self):
-        """ return a deterministic  matrix, the range matrix; 
+        """ return a deterministic  matrix, the range matrix;
             vander matrix must be a full rank matrix.
         """
         self._input_shape = (6, 3)
@@ -132,7 +137,7 @@ class TestSvdNormalMatrix6x3(TestSvdCheckGrad2):
 class TestSvdNormalMatrix3x6(TestSvdCheckGrad2):
 
     def generate_input(self):
-        """ return a deterministic  matrix, the range matrix; 
+        """ return a deterministic  matrix, the range matrix;
             vander matrix must be a full rank matrix.
         """
         self._input_shape = (3, 6)
@@ -162,7 +167,7 @@ class TestSvdNormalMatrix6x3Batched(TestSvdOp):
 class TestSvdNormalMatrix3x6Batched(TestSvdOp):
 
     def generate_input(self):
-        """ return a deterministic  matrix, the range matrix; 
+        """ return a deterministic  matrix, the range matrix;
             vander matrix must be a full rank matrix.
         """
         self._input_shape = (10, 3, 6)
@@ -182,7 +187,7 @@ class TestSvdNormalMatrix3x6Batched(TestSvdOp):
 class TestSvdNormalMatrix3x3x3x6Batched(TestSvdOp):
 
     def generate_input(self):
-        """ return a deterministic  matrix, the range matrix; 
+        """ return a deterministic  matrix, the range matrix;
             vander matrix must be a full rank matrix.
         """
         self._input_shape = (3, 3, 3, 6)
@@ -207,8 +212,8 @@ class TestSvdNormalMatrix3x3x3x6Batched(TestSvdOp):
 class TestSvdNormalMatrixBig(TestSvdOp):
 
     def generate_input(self):
-        """ big matrix SVD. 
-            
+        """ big matrix SVD.
+
         """
         self._input_shape = (2, 200, 300)
         self._input_data = np.random.random(self._input_shape).astype("float64")
@@ -225,7 +230,7 @@ class TestSvdNormalMatrixBig(TestSvdOp):
 class TestSvdNormalMatrixBig2(TestSvdOp):
 
     def generate_input(self):
-        """ big matrix SVD. 
+        """ big matrix SVD.
         """
         self._input_shape = (1, 100)
         self._input_data = np.random.random(self._input_shape).astype("float64")
@@ -262,7 +267,7 @@ class TestSvdFullMatriceGrad(TestSvdNormalMatrix6x3):
         pass
 
     def test_check_grad(self):
-        """ 
+        """
         remember the input matrix must be the full rank matrix, otherwise the gradient will stochatic because the u / v 's  (n-k) freedom  vectors
         """
         self.check_S_grad()
@@ -278,7 +283,7 @@ class TestSvdAPI(unittest.TestCase):
         x = paddle.to_tensor(a)
         u, s, vh = paddle.linalg.svd(x)
         gt_u, gt_s, gt_vh = np.linalg.svd(a, full_matrices=False)
-        self.assertTrue(np.allclose(s, gt_s))
+        np.testing.assert_allclose(s, gt_s, rtol=1e-05)
 
     def test_static(self):
         paddle.enable_static()
@@ -297,7 +302,7 @@ class TestSvdAPI(unittest.TestCase):
                 fetches = exe.run(fluid.default_main_program(),
                                   feed={"input": a},
                                   fetch_list=[s])
-                self.assertTrue(np.allclose(fetches[0], gt_s))
+                np.testing.assert_allclose(fetches[0], gt_s, rtol=1e-05)
 
 
 if __name__ == "__main__":
